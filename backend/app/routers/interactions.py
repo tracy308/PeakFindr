@@ -1,4 +1,5 @@
 # app/routers/interactions.py
+from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -11,6 +12,11 @@ from app.models import (
     UserLike,
     UserSaved,
     UserVisit
+)
+from app.schemas.user_interactions import (
+    UserLikeResponse,
+    UserSavedResponse,
+    UserVisitResponse,
 )
 from app.utils.security import get_current_user
 
@@ -80,7 +86,7 @@ def unlike_location(
         return {"message": "Was not liked"}
 
 
-@router.get("/likes")
+@router.get("/likes", response_model=List[UserLikeResponse])
 def get_user_likes(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
@@ -142,7 +148,7 @@ def unsave_location(
         return {"message": "Was not saved"}
 
 
-@router.get("/saved")
+@router.get("/saved", response_model=List[UserSavedResponse])
 def get_user_saved(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
@@ -177,7 +183,7 @@ def add_visit(
     return {"message": "Visit recorded", "visit_id": visit.id}
 
 
-@router.get("/visits")
+@router.get("/visits", response_model=List[UserVisitResponse])
 def get_user_visits(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),

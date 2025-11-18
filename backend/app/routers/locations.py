@@ -1,15 +1,22 @@
 # app/routers/locations.py
-
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import uuid
 import os
-from datetime import datetime
 
 from app.database import get_db
 from app.models import (
     Location, LocationImage, Tag, LocationTag
+)
+from app.schemas.location import (
+    LocationCreate,
+    LocationUpdate,
+    LocationResponse,
+    LocationImageResponse,
+    LocationTagsRequest,
+    LocationDetailResponse,
+    LocationTagsResponse,
 )
 from app.utils.security import get_current_user
 
@@ -24,13 +31,9 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 # 1. CREATE LOCATION
 # -------------------------------
 
-@router.post("/")
+@router.post("/", response_model=LocationResponse)
 def create_location(
-    name: str,
-    description: Optional[str] = None,
-    maps_url: Optional[str] = None,
-    price_level: Optional[int] = None,
-    area: Optional[str] = None,
+    payload: LocationCreate,
     db: Session = Depends(get_db),
     user=Depends(get_current_user)
 ):
@@ -42,11 +45,7 @@ def create_location(
 
     new_location = Location(
         id=uuid.uuid4(),
-        name=name,
-        description=description,
-        maps_url=maps_url,
-        price_level=price_level,
-        area=area
+        **payload.model_dump()
     )
 
     db.add(new_location)
@@ -61,7 +60,7 @@ def create_location(
 # 2. LIST LOCATIONS
 # -------------------------------
 
-@router.get("/")
+@router.get("/", response_model=List[LocationResponse])
 def list_locations(
     area: Optional[str] = None,
     price_level: Optional[int] = None,
@@ -89,7 +88,7 @@ def list_locations(
 # 3. GET SINGLE LOCATION + IMAGES + TAGS
 # -------------------------------
 
-@router.get("/{location_id}")
+@router.get("/{location_id}", response_model=LocationDetailResponse)
 def get_location(
     location_id: uuid.UUID,
     db: Session = Depends(get_db),
@@ -104,9 +103,9 @@ def get_location(
     images = db.query(LocationImage).filter(LocationImage.location_id == location_id).all()
 
     # Fetch tags
-    tag_links = db.query(LocationTags).filter(LocationTags.location_id == location_id).all()
+    tag_links = db.query(LocationTag).filter(LocationTag.location_id == location_id).all()
     tag_ids = [t.tag_id for t in tag_links]
-    tags = db.query(Tag).filter(Tag.id.in_(tag_ids)).all()
+    tags = db.query(Tag).filter(Tag.id.in_(tag_ids)).all() if tag_ids else []
 
     return {
         "location": location,
@@ -120,14 +119,10 @@ def get_location(
 # 4. UPDATE LOCATION
 # -------------------------------
 
-@router.put("/{location_id}")
+@router.put("/{location_id}", response_model=LocationResponse)
 def update_location(
     location_id: uuid.UUID,
-    name: Optional[str] = None,
-    description: Optional[str] = None,
-    maps_url: Optional[str] = None,
-    price_level: Optional[int] = None,
-    area: Optional[str] = None,
+    payload: LocationUpdate,
     db: Session = Depends(get_db),
     user=Depends(get_current_user)
 ):
@@ -136,16 +131,8 @@ def update_location(
     if not location:
         raise HTTPException(status_code=404, detail="Location not found")
 
-    if name is not None:
-        location.name = name
-    if description is not None:
-        location.description = description
-    if maps_url is not None:
-        location.maps_url = maps_url
-    if price_level is not None:
-        location.price_level = price_level
-    if area is not None:
-        location.area = area
+    for key, value in payload.model_dump(exclude_unset=True).items():
+        setattr(location, key, value)
 
     db.commit()
     db.refresh(location)
@@ -180,7 +167,7 @@ def delete_location(
 # 6. UPLOAD IMAGE TO LOCATION
 # -------------------------------
 
-@router.post("/{location_id}/images")
+@router.post("/{location_id}/images", response_model=LocationImageResponse)
 async def upload_location_image(
     location_id: uuid.UUID,
     file: UploadFile = File(...),
@@ -218,10 +205,10 @@ async def upload_location_image(
 # 7. ADD TAGS TO LOCATION
 # -------------------------------
 
-@router.post("/{location_id}/tags")
+@router.post("/{location_id}/tags", response_model=LocationTagsResponse)
 def add_tags_to_location(
     location_id: uuid.UUID,
-    tags: List[str],
+    payload: LocationTagsRequest,
     db: Session = Depends(get_db),
     user=Depends(get_current_user)
 ):
@@ -232,7 +219,7 @@ def add_tags_to_location(
 
     added_tags = []
 
-    for tag_name in tags:
+    for tag_name in payload.tags:
         # Get or create tag
         tag = db.query(Tag).filter(Tag.name == tag_name).first()
         if not tag:
@@ -242,13 +229,13 @@ def add_tags_to_location(
             db.refresh(tag)
 
         # Link location ↔ tag
-        exists = db.query(LocationTags).filter(
-            LocationTags.location_id == location_id,
-            LocationTags.tag_id == tag.id
+        exists = db.query(LocationTag).filter(
+            LocationTag.location_id == location_id,
+            LocationTag.tag_id == tag.id
         ).first()
 
         if not exists:
-            db.add(LocationTags(location_id=location_id, tag_id=tag.id))
+            db.add(LocationTag(location_id=location_id, tag_id=tag.id))
             added_tags.append(tag)
 
     db.commit()
@@ -269,9 +256,9 @@ def remove_tag_from_location(
     user=Depends(get_current_user)
 ):
 
-    link = db.query(LocationTags).filter(
-        LocationTags.location_id == location_id,
-        LocationTags.tag_id == tag_id
+    link = db.query(LocationTag).filter(
+        LocationTag.location_id == location_id,
+        LocationTag.tag_id == tag_id
     ).first()
 
     if not link:

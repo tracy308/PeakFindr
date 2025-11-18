@@ -1,14 +1,19 @@
 # app/routers/reviews.py
-
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List
 import uuid
 import os
-from datetime import datetime
 
 from app.database import get_db
 from app.models import Review, ReviewPhoto, Location
+from app.schemas.review import (
+    ReviewCreate,
+    ReviewUpdate,
+    ReviewResponse,
+    ReviewPhotoResponse,
+    ReviewWithPhotosResponse,
+)
 from app.utils.security import get_current_user
 
 router = APIRouter()
@@ -27,11 +32,9 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 # 1. CREATE REVIEW
 # ------------------------------------
 
-@router.post("/")
+@router.post("/", response_model=ReviewResponse)
 def create_review(
-    location_id: uuid.UUID,
-    rating: int,
-    comment: Optional[str] = None,
+    payload: ReviewCreate,
     db: Session = Depends(get_db),
     user=Depends(get_current_user)
 ):
@@ -41,19 +44,19 @@ def create_review(
     """
 
     # Verify location exists
-    location = db.query(Location).filter(Location.id == location_id).first()
+    location = db.query(Location).filter(Location.id == payload.location_id).first()
     if not location:
         raise HTTPException(status_code=404, detail="Location not found")
 
-    if rating < 1 or rating > 5:
+    if payload.rating < 1 or payload.rating > 5:
         raise HTTPException(status_code=400, detail="Rating must be between 1 and 5")
 
     new_review = Review(
         id=uuid.uuid4(),
         user_id=user.id,
-        location_id=location_id,
-        rating=rating,
-        comment=comment
+        location_id=payload.location_id,
+        rating=payload.rating,
+        comment=payload.comment
     )
 
     db.add(new_review)
@@ -68,7 +71,7 @@ def create_review(
 # 2. LIST REVIEWS FOR A LOCATION
 # ------------------------------------
 
-@router.get("/location/{location_id}")
+@router.get("/location/{location_id}", response_model=List[ReviewWithPhotosResponse])
 def get_reviews_for_location(
     location_id: uuid.UUID,
     db: Session = Depends(get_db),
@@ -101,11 +104,10 @@ def get_reviews_for_location(
 # 3. UPDATE REVIEW
 # ------------------------------------
 
-@router.put("/{review_id}")
+@router.put("/{review_id}", response_model=ReviewResponse)
 def update_review(
     review_id: uuid.UUID,
-    rating: Optional[int] = None,
-    comment: Optional[str] = None,
+    payload: ReviewUpdate,
     db: Session = Depends(get_db),
     user=Depends(get_current_user)
 ):
@@ -121,13 +123,16 @@ def update_review(
     if review.user_id != user.id:
         raise HTTPException(status_code=403, detail="Not your review")
 
-    if rating is not None:
-        if rating < 1 or rating > 5:
-            raise HTTPException(status_code=400, detail="Rating must be 1-5")
-        review.rating = rating
+    data = payload.model_dump(exclude_unset=True)
 
-    if comment is not None:
-        review.comment = comment
+    if "rating" in data:
+        rating_value = data["rating"]
+        if rating_value < 1 or rating_value > 5:
+            raise HTTPException(status_code=400, detail="Rating must be 1-5")
+        review.rating = rating_value
+
+    if "comment" in data:
+        review.comment = data["comment"]
 
     db.commit()
     db.refresh(review)
@@ -169,7 +174,7 @@ def delete_review(
 # 5. UPLOAD REVIEW PHOTO
 # ------------------------------------
 
-@router.post("/{review_id}/photos")
+@router.post("/{review_id}/photos", response_model=ReviewPhotoResponse)
 async def upload_review_photo(
     review_id: uuid.UUID,
     file: UploadFile = File(...),

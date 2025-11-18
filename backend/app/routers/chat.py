@@ -1,13 +1,12 @@
 # app/routers/chat.py
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import Optional, List
+from typing import List
 import uuid
-from datetime import datetime
 
 from app.database import get_db
 from app.models import ChatMessage, Location
+from app.schemas.chat import ChatMessageCreate, ChatMessageResponse
 from app.utils.security import get_current_user
 
 
@@ -21,10 +20,10 @@ MAX_MESSAGES = 200   # Limit per location
 # 1. SEND CHAT MESSAGE
 # ------------------------------------------
 
-@router.post("/{location_id}")
+@router.post("/{location_id}", response_model=ChatMessageResponse)
 def send_message(
     location_id: uuid.UUID,
-    message: str,
+    payload: ChatMessageCreate,
     db: Session = Depends(get_db),
     user=Depends(get_current_user)
 ):
@@ -41,7 +40,7 @@ def send_message(
     new_msg = ChatMessage(
         location_id=location_id,
         user_id=user.id,  # can be None later for anonymous
-        message=message
+        message=payload.message
     )
 
     db.add(new_msg)
@@ -59,7 +58,7 @@ def send_message(
 # 2. GET CHAT MESSAGES FOR LOCATION
 # ------------------------------------------
 
-@router.get("/{location_id}")
+@router.get("/{location_id}", response_model=List[ChatMessageResponse])
 def get_messages(
     location_id: uuid.UUID,
     db: Session = Depends(get_db),
