@@ -1,5 +1,5 @@
 # app/routers/auth.py
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -71,3 +71,11 @@ def login_user(data: LoginRequest, db: Session = Depends(get_db)):
         "email": user.email,
         "username": user.username
     }
+
+
+@router.get("/me")
+def debug_header(x_user_id: str = Header(None)):
+    if x_user_id is None:
+        return {"message": "X-User-ID header missing"}
+    return {"message": "Header received", "user_id": x_user_id}
+

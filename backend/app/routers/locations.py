@@ -9,7 +9,7 @@ from datetime import datetime
 
 from app.database import get_db
 from app.models import (
-    Location, LocationImage, Tag, LocationTags
+    Location, LocationImage, Tag, LocationTag
 )
 from app.utils.security import get_current_user
 
