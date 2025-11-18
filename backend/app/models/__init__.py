@@ -5,7 +5,6 @@ from .review import Review, ReviewPhoto
 from .chat import ChatMessage
 from .user_interactions import UserLike, UserVisit, UserSaved
 
-# This file makes it easy to import all models from app.models
 __all__ = [
     "User",
     "Location",
