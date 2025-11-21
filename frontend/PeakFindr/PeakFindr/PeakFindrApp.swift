@@ -1,17 +1,16 @@
-//
-//  PeakFindrApp.swift
-//  PeakFindr
-//
-//  Created by Tracy Chan on 2025-10-09.
-//
 
 import SwiftUI
 
 @main
-struct PeakFindrApp: App {
+struct PeakfindrApp: App {
+    @StateObject private var discoveryVM = DiscoveryViewModel()
+    @StateObject private var profileVM = ProfileViewModel()
+
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(discoveryVM)
+                .environmentObject(profileVM)
         }
     }
 }

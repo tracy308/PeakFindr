@@ -1,24 +1,29 @@
-//
-//  ContentView.swift
-//  PeakFindr
-//
-//  Created by Tracy Chan on 2025-10-09.
-//
 
 import SwiftUI
 
 struct ContentView: View {
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
-        }
-        .padding()
-    }
-}
+        TabView {
+            NavigationStack {
+                DiscoveryView()
+            }
+            .tabItem {
+                Label("Discover", systemImage: "sparkles")
+            }
 
-#Preview {
-    ContentView()
+            NavigationStack {
+                SocialHubView()
+            }
+            .tabItem {
+                Label("Social", systemImage: "bubble.left.and.bubble.right")
+            }
+
+            NavigationStack {
+                ProfileView()
+            }
+            .tabItem {
+                Label("Profile", systemImage: "person.crop.circle")
+            }
+        }
+    }
 }
