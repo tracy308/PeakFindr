@@ -1,14 +1,15 @@
 
 import Foundation
 
-struct VisitRecord: Identifiable, Equatable {
+struct VisitRecord: Identifiable, Equatable, Codable {
     let id: UUID
     let locationName: String
     let date: Date
     let pointsEarned: Int
 }
 
-struct UserProfile {
+struct UserProfile: Identifiable, Codable {
+    var id: UUID = UUID()
     var name: String
     var email: String
     var level: Int

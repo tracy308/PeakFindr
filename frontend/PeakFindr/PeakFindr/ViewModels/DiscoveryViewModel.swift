@@ -14,6 +14,10 @@ class DiscoveryViewModel: ObservableObject {
             guard let loc = note.object as? Location else { return }
             self?.save(location: loc)
         }
+        NotificationCenter.default.addObserver(forName: .skipLocation, object: nil, queue: .main) { [weak self] note in
+            guard let loc = note.object as? Location else { return }
+            self?.skip(location: loc)
+        }
     }
 
     var filteredLocations: [Location] {
@@ -25,20 +29,14 @@ class DiscoveryViewModel: ObservableObject {
         }
     }
 
-    func loadSample() {
-        locations = Location.sampleData()
-    }
+    func loadSample() { locations = Location.sampleData() }
 
     func skip(location: Location) {
-        if let idx = locations.firstIndex(of: location) {
-            locations.remove(at: idx)
-        }
+        if let idx = locations.firstIndex(of: location) { locations.remove(at: idx) }
     }
 
     func save(location: Location) {
-        if !saved.contains(location) {
-            saved.append(location)
-        }
+        if !saved.contains(location) { saved.append(location) }
     }
 
     func addReview(_ review: Review, to location: Location) {

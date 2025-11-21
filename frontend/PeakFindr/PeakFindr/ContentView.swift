@@ -7,23 +7,17 @@ struct ContentView: View {
             NavigationStack {
                 DiscoveryView()
             }
-            .tabItem {
-                Label("Discover", systemImage: "sparkles")
-            }
+            .tabItem { Label("Discover", systemImage: "sparkles") }
 
             NavigationStack {
                 SocialHubView()
             }
-            .tabItem {
-                Label("Social", systemImage: "bubble.left.and.bubble.right")
-            }
+            .tabItem { Label("Social", systemImage: "bubble.left.and.bubble.right") }
 
             NavigationStack {
                 ProfileView()
             }
-            .tabItem {
-                Label("Profile", systemImage: "person.crop.circle")
-            }
+            .tabItem { Label("Profile", systemImage: "person.crop.circle") }
         }
     }
 }
