@@ -107,6 +107,10 @@ class LocationDetailResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class LocationTagsRequest(BaseModel):
+    tags: List[str]
+
+
 class LocationTagsResponse(BaseModel):
     added_tags: List[TagResponse]
 

@@ -2,7 +2,7 @@
 from .user import User
 from .location import Location, LocationImage, LocationTag, Tag
 from .review import Review, ReviewPhoto
-from .chat import ChatMessage
+from .chat import ChatMessage, ChatRoom, ChatRoomMessage
 from .user_interactions import UserLike, UserVisit, UserSaved
 
 __all__ = [
@@ -14,6 +14,8 @@ __all__ = [
     "Review",
     "ReviewPhoto",
     "ChatMessage",
+    "ChatRoom",
+    "ChatRoomMessage",
     "UserLike",
     "UserVisit",
     "UserSaved",
