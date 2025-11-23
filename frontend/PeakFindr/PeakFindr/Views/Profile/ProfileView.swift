@@ -2,7 +2,9 @@
 import SwiftUI
 
 struct ProfileView: View {
+    @EnvironmentObject var authVM: AuthViewModel
     @EnvironmentObject var profileVM: ProfileViewModel
+    var onLogout: () -> Void
 
     var body: some View {
         ScrollView {
@@ -13,94 +15,35 @@ struct ProfileView: View {
             }
         }
         .background(Color(.systemGray6))
+        .navigationTitle("Profile")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                Text("Profile")
-                    .font(.headline)
-            }
+        .task {
+            profileVM.refreshAll(userId: authVM.userId, username: authVM.username, email: authVM.email)
         }
     }
 
     private var headerSection: some View {
-        let profile = profileVM.profile
-
+        let p = profileVM.profile
         return ZStack(alignment: .bottom) {
             LinearGradient(
-                colors: [
-                    Color(red: 193/255, green: 66/255, blue: 54/255),
-                    Color(red: 212/255, green: 93/255, blue: 58/255)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
+                colors: [Color(red: 193/255, green: 66/255, blue: 54/255),
+                         Color(red: 212/255, green: 93/255, blue: 58/255)],
+                startPoint: .topLeading, endPoint: .bottomTrailing
             )
             .frame(height: 260)
 
             VStack(spacing: 12) {
                 Circle()
-                    .fill(Color.white)
-                    .frame(width: 80, height: 80)
-                    .overlay(
-                        Text(String(profile.name.prefix(1)))
-                            .font(.title)
-                            .foregroundColor(Color(red: 193/255, green: 66/255, blue: 54/255))
-                    )
+                    .fill(Color.white).frame(width: 80, height: 80)
+                    .overlay(Text(String((p.name.isEmpty ? authVM.username : p.name).prefix(1))).font(.title))
 
-                Text(profile.name)
-                    .font(.title2)
-                    .bold()
-                    .foregroundColor(.white)
-
-                Text(profile.email)
+                Text(p.name.isEmpty ? authVM.username : p.name)
+                    .font(.title2).bold().foregroundColor(.white)
+                Text(p.email.isEmpty ? authVM.email : p.email)
                     .foregroundColor(.white.opacity(0.9))
 
-                HStack(spacing: 16) {
-                    Capsule()
-                        .stroke(Color.white.opacity(0.7), lineWidth: 1)
-                        .frame(height: 34)
-                        .overlay(
-                            HStack {
-                                Image(systemName: "rosette")
-                                Text("Level \(profile.level)")
-                            }
-                            .foregroundColor(.white)
-                        )
-
-                    Capsule()
-                        .stroke(Color.white.opacity(0.7), lineWidth: 1)
-                        .frame(height: 34)
-                        .overlay(
-                            HStack {
-                                Image(systemName: "star")
-                                Text("\(profile.points) points")
-                            }
-                            .foregroundColor(.white)
-                        )
-                }
-                .padding(.top, 4)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text("Progress to level \(profile.level + 1)")
-                            .font(.caption)
-                            .foregroundColor(.white.opacity(0.9))
-                        Spacer()
-                        Text("\(profile.points % 100)/100")
-                            .font(.caption)
-                            .foregroundColor(.white.opacity(0.9))
-                    }
-
-                    ProgressView(value: profileVM.progressToNextLevel)
-                        .tint(.white)
-                }
-                .padding(.horizontal, 32)
-                .padding(.top, 4)
-
-                Button {
-                    // log out placeholder
-                } label: {
+                Button { onLogout() } label: {
                     Text("Log out")
-                        .font(.body)
                         .padding(.horizontal, 32)
                         .padding(.vertical, 10)
                         .background(Color.white.opacity(0.1))
@@ -119,64 +62,33 @@ struct ProfileView: View {
     }
 
     private var statsSection: some View {
-        let profile = profileVM.profile
-
+        let p = profileVM.profile
         return HStack(spacing: 12) {
-            StatCardView(
-                iconName: "mappin.and.ellipse",
-                title: "Visited",
-                value: profile.visits.count
-            )
-            StatCardView(
-                iconName: "star.fill",
-                title: "Reviews",
-                value: profile.reviewsCount
-            )
-            StatCardView(
-                iconName: "chart.line.uptrend.xyaxis",
-                title: "Streak",
-                value: profile.streakDays
-            )
+            StatCardView(iconName: "mappin.and.ellipse", title: "Visited", value: p.visitsCount)
+            StatCardView(iconName: "star.fill", title: "Reviews", value: p.reviewsCount)
         }
-        .padding(.horizontal)
-        .padding(.top, 16)
+        .padding(.horizontal).padding(.top, 16)
     }
 
     private var recentVisitsSection: some View {
-        let visits = profileVM.profile.visits
-
+        let visits = profileVM.profile.recentVisits
         return VStack(alignment: .leading, spacing: 8) {
-            Text("Recent Visits")
-                .font(.headline)
+            Text("Recent Visits").font(.headline)
 
             if visits.isEmpty {
                 Text("No visits yet. Start exploring!")
-                    .foregroundColor(.secondary)
-                    .padding(.top, 4)
+                    .foregroundColor(.secondary).padding(.top, 4)
             } else {
                 VStack(spacing: 12) {
                     ForEach(visits) { visit in
-                        HStack(alignment: .center) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(visit.locationName)
-                                    .bold()
-                                Text(visit.date, style: .date)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
+                        HStack {
+                            Text(visit.location_id).bold()
                             Spacer()
-                            Text("+\(visit.pointsEarned) points")
-                                .font(.caption)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color.green.opacity(0.12))
-                                .foregroundColor(.green)
-                                .cornerRadius(999)
+                            Text(visit.created_at).font(.caption).foregroundColor(.secondary)
                         }
                         .padding()
                         .background(Color(.systemBackground))
                         .cornerRadius(14)
-                        .shadow(color: Color.black.opacity(0.03), radius: 4, x: 0, y: 2)
                     }
                 }
             }
@@ -189,18 +101,13 @@ struct StatCardView: View {
     let iconName: String
     let title: String
     let value: Int
-
     var body: some View {
         VStack(spacing: 8) {
             Image(systemName: iconName)
                 .font(.title2)
                 .foregroundColor(Color(red: 170/255, green: 64/255, blue: 57/255))
-            Text("\(value)")
-                .font(.title2)
-                .bold()
-            Text(title)
-                .font(.caption)
-                .foregroundColor(.secondary)
+            Text("\(value)").font(.title2).bold()
+            Text(title).font(.caption).foregroundColor(.secondary)
         }
         .frame(maxWidth: .infinity)
         .padding()

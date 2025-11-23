@@ -1,64 +1,64 @@
-
 import SwiftUI
 
 struct SwipeCardStack: View {
-    let locations: [Location]
-    var onSkip: (Location) -> Void
-    var onShowDetail: (Location) -> Void
+    let locations: [LocationResponse]
+    var onSkip: (LocationResponse) -> Void
+    var onSave: (LocationResponse) -> Void
+    var onTapTop: (LocationResponse) -> Void
 
-    @State private var dragOffsets: [UUID: CGSize] = [:]
+    @State private var dragOffsets: [String: CGSize] = [:]
 
     var body: some View {
-        GeometryReader { proxy in
-            ZStack {
-                ForEach(Array(locations.enumerated()), id: \.element.id) { index, loc in
-                    let isTop = index == locations.count - 1
-
-                    LocationCardView(location: loc)
-                        .frame(maxWidth: .infinity)
-                        .offset(offset(for: loc, index: index))
-                        .rotationEffect(.degrees(isTop ? Double((dragOffsets[loc.id]?.width ?? 0) / 15) : 0))
-                        .scaleEffect(isTop ? 1.0 : scale(for: index))
-                        .zIndex(Double(index))
-                        .gesture(
-                            isTop ?
-                            DragGesture()
-                                .onChanged { value in
-                                    dragOffsets[loc.id] = value.translation
-                                }
-                                .onEnded { value in
-                                    handleDragEnd(value: value, loc: loc, width: proxy.size.width)
-                                } : nil
-                        )
-                        .animation(.interactiveSpring(), value: dragOffsets[loc.id] ?? .zero)
-                }
+        ZStack(alignment: .top) {
+            // Render bottom -> top so the top card is last in the ZStack
+            ForEach(Array(locations.enumerated()), id: \.element.id) { index, loc in
+                let isTop = index == 0
+                LocationCardView(location: loc)
+                    .offset(offset(for: loc, index: index))
+                    .scaleEffect(scale(for: index))
+                    .zIndex(Double(locations.count - index))
+                    .gesture(
+                        DragGesture()
+                            .onChanged { value in
+                                guard isTop else { return }
+                                dragOffsets[loc.id] = value.translation
+                            }
+                            .onEnded { value in
+                                guard isTop else { return }
+                                handleEnd(value, loc: loc)
+                            }
+                    )
+                    .onTapGesture {
+                        if isTop { onTapTop(loc) }
+                    }
             }
         }
-        .frame(minHeight: 380)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
-    private func offset(for loc: Location, index: Int) -> CGSize {
-        let base = CGSize(width: 0, height: CGFloat(index) * 8)
+    private func scale(for index: Int) -> CGFloat {
+        // Slightly smaller for deeper cards
+        let delta = min(CGFloat(index) * 0.02, 0.08)
+        return 1.0 - delta
+    }
+
+    private func offset(for loc: LocationResponse, index: Int) -> CGSize {
+        // Index 0 is top card, bigger index sits behind slightly lower
+        let base = CGSize(width: 0, height: CGFloat(index) * 10)
         let drag = dragOffsets[loc.id] ?? .zero
         return CGSize(width: base.width + drag.width, height: base.height + drag.height)
     }
 
-    private func scale(for index: Int) -> CGFloat {
-        max(0.92, 1.0 - CGFloat(index) * 0.04)
-    }
-
-    private func handleDragEnd(value: DragGesture.Value, loc: Location, width: CGFloat) {
-        let translation = value.translation
+    private func handleEnd(_ value: DragGesture.Value, loc: LocationResponse) {
+        let t = value.translation.width
         let threshold: CGFloat = 120
 
-        if translation.width < -threshold {
+        if t < -threshold {
             onSkip(loc)
-            dragOffsets[loc.id] = .zero
-        } else if translation.width > threshold {
-            onShowDetail(loc)
-            dragOffsets[loc.id] = .zero
-        } else {
-            dragOffsets[loc.id] = .zero
+        } else if t > threshold {
+            onSave(loc)
         }
+
+        dragOffsets[loc.id] = .zero
     }
 }
