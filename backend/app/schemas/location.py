@@ -12,7 +12,10 @@ class LocationBase(BaseModel):
     maps_url: Optional[str] = None
     price_level: Optional[int] = None
     area: Optional[str] = None
-
+    region: Optional[str] = None
+    summary: Optional[str] = None
+    duration: Optional[str] = None
+    opening_hours: Optional[str] = None
 
 class LocationCreate(LocationBase):
     pass
@@ -24,7 +27,10 @@ class LocationUpdate(BaseModel):
     maps_url: Optional[str] = None
     price_level: Optional[int] = None
     area: Optional[str] = None
-
+    region: Optional[str] = None
+    summary: Optional[str] = None
+    duration: Optional[str] = None
+    opening_hours: Optional[str] = None
 
 class LocationResponse(LocationBase):
     id: UUID

@@ -1,13 +1,13 @@
-# app/routers/locations.py
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import uuid
 import os
+from sqlalchemy import func
 
 from app.database import get_db
 from app.models import (
-    Location, LocationImage, Tag, LocationTag
+    Location, LocationImage, Tag, LocationTag, UserVisit
 )
 from app.schemas.location import (
     LocationCreate,
@@ -26,7 +26,95 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "..", "media", "location_images")
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-    
+
+# -------------------------------
+# 0. RECOMMENDED LOCATIONS (SWIPE DECK)
+# -------------------------------
+
+@router.get("/recommended", response_model=List[LocationDetailResponse])
+def get_recommended_locations(
+    limit: int = 10,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    """
+    Returns a random list of recommended locations.
+    - Excludes locations the user has visited.
+    - Ignores categories for now (MVP).
+    - Structured for future personalization.
+    """
+
+    # Ensure limit is sane
+    if limit <= 0:
+        limit = 10
+    if limit > 50:
+        limit = 50
+
+    # Subquery: user visited locations
+    visited_subq = (
+        db.query(UserVisit.location_id)
+        .filter(UserVisit.user_id == user.id)
+        .subquery()
+    )
+
+    # Fetch random locations not visited by this user
+    locations = (
+        db.query(Location)
+        .filter(~Location.id.in_(visited_subq))
+        .order_by(func.random())
+        .limit(limit)
+        .all()
+    )
+
+    if not locations:
+        return []
+
+    location_ids = [loc.id for loc in locations]
+
+    # Prefetch images
+    images = (
+        db.query(LocationImage)
+        .filter(LocationImage.location_id.in_(location_ids))
+        .all()
+    )
+
+    # Prefetch tag links
+    tag_links = (
+        db.query(LocationTag)
+        .filter(LocationTag.location_id.in_(location_ids))
+        .all()
+    )
+    tag_ids = [link.tag_id for link in tag_links]
+
+    # Prefetch tags in a single query
+    tags = db.query(Tag).filter(Tag.id.in_(tag_ids)).all() if tag_ids else []
+
+    # Build lookup maps for efficient assembling
+    images_by_loc = {lid: [] for lid in location_ids}
+    for img in images:
+        images_by_loc.setdefault(img.location_id, []).append(img)
+
+    tags_by_id = {t.id: t for t in tags}
+
+    tag_ids_by_loc = {lid: [] for lid in location_ids}
+    for link in tag_links:
+        tag_ids_by_loc.setdefault(link.location_id, []).append(link.tag_id)
+
+    results = []
+    for loc in locations:
+        loc_images = images_by_loc.get(loc.id, [])
+        loc_tag_ids = tag_ids_by_loc.get(loc.id, [])
+        loc_tags = [tags_by_id[tid] for tid in loc_tag_ids if tid in tags_by_id]
+
+        results.append({
+            "location": loc,
+            "images": loc_images,
+            "tags": loc_tags,
+        })
+
+    return results
+
+
 # -------------------------------
 # 1. CREATE LOCATION
 # -------------------------------
@@ -55,7 +143,6 @@ def create_location(
     return new_location
 
 
-
 # -------------------------------
 # 2. LIST LOCATIONS
 # -------------------------------
@@ -69,7 +156,6 @@ def list_locations(
 ):
     """
     Returns all locations with optional filters.
-    Later: Use for swipe/random logic.
     """
 
     query = db.query(Location)
@@ -83,7 +169,6 @@ def list_locations(
     return query.all()
 
 
-
 # -------------------------------
 # 3. GET SINGLE LOCATION + IMAGES + TAGS
 # -------------------------------
@@ -94,15 +179,12 @@ def get_location(
     db: Session = Depends(get_db),
     user=Depends(get_current_user)
 ):
-
     location = db.query(Location).filter(Location.id == location_id).first()
     if not location:
         raise HTTPException(status_code=404, detail="Location not found")
 
-    # Fetch images
     images = db.query(LocationImage).filter(LocationImage.location_id == location_id).all()
 
-    # Fetch tags
     tag_links = db.query(LocationTag).filter(LocationTag.location_id == location_id).all()
     tag_ids = [t.tag_id for t in tag_links]
     tags = db.query(Tag).filter(Tag.id.in_(tag_ids)).all() if tag_ids else []
@@ -112,7 +194,6 @@ def get_location(
         "images": images,
         "tags": tags,
     }
-
 
 
 # -------------------------------
@@ -126,7 +207,6 @@ def update_location(
     db: Session = Depends(get_db),
     user=Depends(get_current_user)
 ):
-
     location = db.query(Location).filter(Location.id == location_id).first()
     if not location:
         raise HTTPException(status_code=404, detail="Location not found")
@@ -140,7 +220,6 @@ def update_location(
     return location
 
 
-
 # -------------------------------
 # 5. DELETE LOCATION
 # -------------------------------
@@ -151,7 +230,6 @@ def delete_location(
     db: Session = Depends(get_db),
     user=Depends(get_current_user)
 ):
-
     location = db.query(Location).filter(Location.id == location_id).first()
     if not location:
         raise HTTPException(status_code=404, detail="Location not found")
@@ -160,7 +238,6 @@ def delete_location(
     db.commit()
 
     return {"message": "Location deleted"}
-
 
 
 # -------------------------------
@@ -174,16 +251,13 @@ async def upload_location_image(
     db: Session = Depends(get_db),
     user=Depends(get_current_user)
 ):
-
     location = db.query(Location).filter(Location.id == location_id).first()
     if not location:
         raise HTTPException(status_code=404, detail="Location not found")
 
-    # Create unique file name
     filename = f"{location_id}_{uuid.uuid4()}.jpg"
     file_path = os.path.join(UPLOAD_FOLDER, filename)
 
-    # Save file locally
     content = await file.read()
     with open(file_path, "wb") as f:
         f.write(content)
@@ -200,7 +274,6 @@ async def upload_location_image(
     return new_image
 
 
-
 # -------------------------------
 # 7. ADD TAGS TO LOCATION
 # -------------------------------
@@ -212,7 +285,6 @@ def add_tags_to_location(
     db: Session = Depends(get_db),
     user=Depends(get_current_user)
 ):
-
     location = db.query(Location).filter(Location.id == location_id).first()
     if not location:
         raise HTTPException(status_code=404, detail="Location not found")
@@ -220,7 +292,6 @@ def add_tags_to_location(
     added_tags = []
 
     for tag_name in payload.tags:
-        # Get or create tag
         tag = db.query(Tag).filter(Tag.name == tag_name).first()
         if not tag:
             tag = Tag(name=tag_name)
@@ -228,7 +299,6 @@ def add_tags_to_location(
             db.commit()
             db.refresh(tag)
 
-        # Link location ↔ tag
         exists = db.query(LocationTag).filter(
             LocationTag.location_id == location_id,
             LocationTag.tag_id == tag.id
@@ -243,7 +313,6 @@ def add_tags_to_location(
     return {"added_tags": added_tags}
 
 
-
 # -------------------------------
 # 8. REMOVE TAG FROM LOCATION
 # -------------------------------
@@ -255,7 +324,6 @@ def remove_tag_from_location(
     db: Session = Depends(get_db),
     user=Depends(get_current_user)
 ):
-
     link = db.query(LocationTag).filter(
         LocationTag.location_id == location_id,
         LocationTag.tag_id == tag_id
