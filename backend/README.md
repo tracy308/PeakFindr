@@ -162,7 +162,7 @@ uvicorn app.main:app --reload
 
 ## 📚 Complete API Reference
 
-All authenticated endpoints require the `X-User-ID` header containing the user's UUID.
+Only endpoints that need user context require the `X-User-ID` header. In the tables below, the **Headers** column shows when to include it; a dash (`—`) means the route is public.
 
 ---
 
@@ -180,14 +180,15 @@ All authenticated endpoints require the `X-User-ID` header containing the user's
 
 | Method | Endpoint | Description | Headers | Request Body | Response |
 |--------|----------|-------------|---------|--------------|----------|
-| **GET** | `/locations/` | List all locations | `X-User-ID` | Query: `?area=<str>&price_level=<int>` | `[{ "id": "uuid", "name": "...", "description": "...", "maps_url": "...", "price_level": 1-4, "area": "...", "created_at": "..." }, ...]` |
-| **POST** | `/locations/` | Create location | `X-User-ID` | `{ "name": "Peak Tower", "description": "...", "maps_url": "...", "price_level": 2, "area": "Central" }` | `LocationResponse` |
-| **GET** | `/locations/{location_id}` | Get location + images + tags | `X-User-ID` | — | `{ "location": {...}, "images": [...], "tags": [...] }` |
-| **PUT** | `/locations/{location_id}` | Update location | `X-User-ID` | `{ "name": "New Name", "price_level": 3 }` (partial) | `LocationResponse` |
-| **DELETE** | `/locations/{location_id}` | Delete location | `X-User-ID` | — | `{ "message": "Location deleted" }` |
-| **POST** | `/locations/{location_id}/images` | Upload location image | `X-User-ID` | `multipart/form-data` with `file` | `{ "id": 1, "location_id": "uuid", "file_path": "...", "created_at": "..." }` |
-| **POST** | `/locations/{location_id}/tags` | Add tags to location | `X-User-ID` | `{ "tags": ["hiking", "scenic"] }` | `{ "added_tags": [{ "id": 1, "name": "hiking" }, ...] }` |
-| **DELETE** | `/locations/{location_id}/tags/{tag_id}` | Remove tag from location | `X-User-ID` | — | `{ "message": "Tag removed" }` |
+| **GET** | `/locations/recommended?limit=10` | Random recommended locations the user has not visited yet | `X-User-ID` | Query: optional `limit` (max 50) | `[{ "location": {...}, "images": [...], "tags": [...] }, ...]` |
+| **GET** | `/locations/` | List all locations | — | Query: `?area=<str>&price_level=<int>` | `[{ "id": "uuid", "name": "...", "description": "...", "maps_url": "...", "price_level": 1-4, "area": "...", "created_at": "..." }, ...]` |
+| **POST** | `/locations/` | Create location | — | `{ "name": "Peak Tower", "description": "...", "maps_url": "...", "price_level": 2, "area": "Central" }` | `LocationResponse` |
+| **GET** | `/locations/{location_id}` | Get location + images + tags | — | — | `{ "location": {...}, "images": [...], "tags": [...] }` |
+| **PUT** | `/locations/{location_id}` | Update location | — | `{ "name": "New Name", "price_level": 3 }` (partial) | `LocationResponse` |
+| **DELETE** | `/locations/{location_id}` | Delete location | — | — | `{ "message": "Location deleted" }` |
+| **POST** | `/locations/{location_id}/images` | Upload location image | — | `multipart/form-data` with `file` | `{ "id": 1, "location_id": "uuid", "file_path": "...", "created_at": "..." }` |
+| **POST** | `/locations/{location_id}/tags` | Add tags to location | — | `{ "tags": ["hiking", "scenic"] }` | `{ "added_tags": [{ "id": 1, "name": "hiking" }, ...] }` |
+| **DELETE** | `/locations/{location_id}/tags/{tag_id}` | Remove tag from location | — | — | `{ "message": "Tag removed" }` |
 
 ---
 
@@ -205,10 +206,22 @@ All authenticated endpoints require the `X-User-ID` header containing the user's
 
 ### 💬 Chat (`/chat`)
 
+#### Location Chats
+
 | Method | Endpoint | Description | Headers | Request Body | Response |
 |--------|----------|-------------|---------|--------------|----------|
-| **POST** | `/chat/{location_id}` | Send message to location chat | `X-User-ID` | `{ "message": "Hello everyone!" }` | `{ "id": 1, "location_id": "uuid", "user_id": "uuid", "message": "...", "created_at": "..." }` |
-| **GET** | `/chat/{location_id}` | Get messages for location | `X-User-ID` | — | `[{ "id": 1, "location_id": "uuid", "user_id": "uuid", "message": "...", "created_at": "..." }, ...]` |
+| **POST** | `/chat/{location_id}` | Send message to a location-specific feed | `X-User-ID` | `{ "message": "Hello everyone!" }` | `{ "id": 1, "location_id": "uuid", "user_id": "uuid", "message": "...", "created_at": "..." }` |
+| **GET** | `/chat/{location_id}` | Get the most recent messages for a location | `X-User-ID` | — | `[{ "id": 1, "location_id": "uuid", "user_id": "uuid", "message": "...", "created_at": "..." }, ...]` |
+
+#### Social Hub Rooms
+
+| Method | Endpoint | Description | Headers | Request Body | Response |
+|--------|----------|-------------|---------|--------------|----------|
+| **GET** | `/chat/rooms` | List all available chat rooms (auto-seeds defaults) | `X-User-ID` | — | `[{ "id": "uuid", "name": "General Chat", "category": "all", ... }, ...]` |
+| **POST** | `/chat/rooms` | Create a new chat room | `X-User-ID` | `{ "name": "Sunset Lovers", "category": "sights" }` | `ChatRoomResponse` |
+| **GET** | `/chat/rooms/{room_id}/messages?limit=50&before=<ISO8601>` | Fetch paginated room history | `X-User-ID` | — | `[{ "id": "uuid", "room_id": "uuid", "text": "...", "created_at": "..." }, ...]` |
+| **POST** | `/chat/rooms/{room_id}/messages` | Send a message to a room via HTTP fallback | `X-User-ID` | `{ "text": "Who's hiking today?" }` | `ChatRoomMessageResponse` |
+| **WebSocket** | `/chat/rooms/{room_id}/ws` | Real-time chat stream (send `{ "text": "hi", "user_id": "uuid" }`) | — | WebSocket JSON frames | Broadcasts `ChatRoomMessageResponse` payloads to the room |
 
 ---
 
@@ -216,9 +229,9 @@ All authenticated endpoints require the `X-User-ID` header containing the user's
 
 | Method | Endpoint | Description | Headers | Request Body | Response |
 |--------|----------|-------------|---------|--------------|----------|
-| **GET** | `/tags/` | List all tags | `X-User-ID` | — | `[{ "id": 1, "name": "hiking" }, ...]` |
-| **POST** | `/tags/` | Create new tag | `X-User-ID` | `{ "name": "mountain" }` | `{ "id": 2, "name": "mountain" }` |
-| **DELETE** | `/tags/{tag_id}` | Delete tag | `X-User-ID` | — | `{ "message": "Tag deleted successfully" }` |
+| **GET** | `/tags/` | List all tags | — | — | `[{ "id": 1, "name": "hiking" }, ...]` |
+| **POST** | `/tags/` | Create new tag | — | `{ "name": "mountain" }` | `{ "id": 2, "name": "mountain" }` |
+| **DELETE** | `/tags/{tag_id}` | Delete tag | — | — | `{ "message": "Tag deleted successfully" }` |
 
 ---
 

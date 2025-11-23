@@ -24,13 +24,12 @@ router = APIRouter()
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "..", "media", "location_images")
-
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# -------------------------------
-# 0. RECOMMENDED LOCATIONS (SWIPE DECK)
-# -------------------------------
 
+# ---------------------------------------------------------------------
+# 0. RECOMMENDED LOCATIONS (Personalized — requires authenticated user)
+# ---------------------------------------------------------------------
 @router.get("/recommended", response_model=List[LocationDetailResponse])
 def get_recommended_locations(
     limit: int = 10,
@@ -38,26 +37,19 @@ def get_recommended_locations(
     user=Depends(get_current_user),
 ):
     """
-    Returns a random list of recommended locations.
+    Personalized recommendations:
     - Excludes locations the user has visited.
-    - Ignores categories for now (MVP).
-    - Structured for future personalization.
+    - Random ordering (future: category-based).
     """
+    # limit sanity check
+    limit = max(1, min(limit, 50))
 
-    # Ensure limit is sane
-    if limit <= 0:
-        limit = 10
-    if limit > 50:
-        limit = 50
-
-    # Subquery: user visited locations
     visited_subq = (
         db.query(UserVisit.location_id)
         .filter(UserVisit.user_id == user.id)
         .subquery()
     )
 
-    # Fetch random locations not visited by this user
     locations = (
         db.query(Location)
         .filter(~Location.id.in_(visited_subq))
@@ -86,17 +78,17 @@ def get_recommended_locations(
     )
     tag_ids = [link.tag_id for link in tag_links]
 
-    # Prefetch tags in a single query
+    # Prefetch tags
     tags = db.query(Tag).filter(Tag.id.in_(tag_ids)).all() if tag_ids else []
 
-    # Build lookup maps for efficient assembling
-    images_by_loc = {lid: [] for lid in location_ids}
+    # Build maps
+    images_by_loc = {}
     for img in images:
         images_by_loc.setdefault(img.location_id, []).append(img)
 
     tags_by_id = {t.id: t for t in tags}
 
-    tag_ids_by_loc = {lid: [] for lid in location_ids}
+    tag_ids_by_loc = {}
     for link in tag_links:
         tag_ids_by_loc.setdefault(link.location_id, []).append(link.tag_id)
 
@@ -115,69 +107,50 @@ def get_recommended_locations(
     return results
 
 
-# -------------------------------
-# 1. CREATE LOCATION
-# -------------------------------
-
+# ---------------------------------------------------------------------
+# 1. CREATE LOCATION (Public — no authentication required)
+# ---------------------------------------------------------------------
 @router.post("/", response_model=LocationResponse)
 def create_location(
     payload: LocationCreate,
     db: Session = Depends(get_db),
-    user=Depends(get_current_user)
 ):
-    """
-    Creates a new location.
-    MVP: Open to all authenticated users.
-    Later: Restrict to admin role.
-    """
-
     new_location = Location(
         id=uuid.uuid4(),
         **payload.model_dump()
     )
-
     db.add(new_location)
     db.commit()
     db.refresh(new_location)
-
     return new_location
 
 
-# -------------------------------
-# 2. LIST LOCATIONS
-# -------------------------------
-
+# ---------------------------------------------------------------------
+# 2. LIST LOCATIONS (Public)
+# ---------------------------------------------------------------------
 @router.get("/", response_model=List[LocationResponse])
 def list_locations(
     area: Optional[str] = None,
     price_level: Optional[int] = None,
     db: Session = Depends(get_db),
-    user=Depends(get_current_user)
 ):
-    """
-    Returns all locations with optional filters.
-    """
-
     query = db.query(Location)
 
     if area:
         query = query.filter(Location.area == area)
-
     if price_level:
         query = query.filter(Location.price_level == price_level)
 
     return query.all()
 
 
-# -------------------------------
-# 3. GET SINGLE LOCATION + IMAGES + TAGS
-# -------------------------------
-
+# ---------------------------------------------------------------------
+# 3. GET SINGLE LOCATION + IMAGES + TAGS (Public)
+# ---------------------------------------------------------------------
 @router.get("/{location_id}", response_model=LocationDetailResponse)
 def get_location(
     location_id: uuid.UUID,
     db: Session = Depends(get_db),
-    user=Depends(get_current_user)
 ):
     location = db.query(Location).filter(Location.id == location_id).first()
     if not location:
@@ -196,16 +169,14 @@ def get_location(
     }
 
 
-# -------------------------------
-# 4. UPDATE LOCATION
-# -------------------------------
-
+# ---------------------------------------------------------------------
+# 4. UPDATE LOCATION (Public for now — later restrict to admin)
+# ---------------------------------------------------------------------
 @router.put("/{location_id}", response_model=LocationResponse)
 def update_location(
     location_id: uuid.UUID,
     payload: LocationUpdate,
     db: Session = Depends(get_db),
-    user=Depends(get_current_user)
 ):
     location = db.query(Location).filter(Location.id == location_id).first()
     if not location:
@@ -216,19 +187,16 @@ def update_location(
 
     db.commit()
     db.refresh(location)
-
     return location
 
 
-# -------------------------------
-# 5. DELETE LOCATION
-# -------------------------------
-
+# ---------------------------------------------------------------------
+# 5. DELETE LOCATION (Public — admin restriction later)
+# ---------------------------------------------------------------------
 @router.delete("/{location_id}")
 def delete_location(
     location_id: uuid.UUID,
     db: Session = Depends(get_db),
-    user=Depends(get_current_user)
 ):
     location = db.query(Location).filter(Location.id == location_id).first()
     if not location:
@@ -236,20 +204,17 @@ def delete_location(
 
     db.delete(location)
     db.commit()
-
     return {"message": "Location deleted"}
 
 
-# -------------------------------
-# 6. UPLOAD IMAGE TO LOCATION
-# -------------------------------
-
+# ---------------------------------------------------------------------
+# 6. UPLOAD IMAGE TO LOCATION (Public)
+# ---------------------------------------------------------------------
 @router.post("/{location_id}/images", response_model=LocationImageResponse)
 async def upload_location_image(
     location_id: uuid.UUID,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    user=Depends(get_current_user)
 ):
     location = db.query(Location).filter(Location.id == location_id).first()
     if not location:
@@ -274,16 +239,14 @@ async def upload_location_image(
     return new_image
 
 
-# -------------------------------
-# 7. ADD TAGS TO LOCATION
-# -------------------------------
-
+# ---------------------------------------------------------------------
+# 7. ADD TAGS TO LOCATION (Public)
+# ---------------------------------------------------------------------
 @router.post("/{location_id}/tags", response_model=LocationTagsResponse)
 def add_tags_to_location(
     location_id: uuid.UUID,
     payload: LocationTagsRequest,
     db: Session = Depends(get_db),
-    user=Depends(get_current_user)
 ):
     location = db.query(Location).filter(Location.id == location_id).first()
     if not location:
@@ -313,16 +276,14 @@ def add_tags_to_location(
     return {"added_tags": added_tags}
 
 
-# -------------------------------
-# 8. REMOVE TAG FROM LOCATION
-# -------------------------------
-
+# ---------------------------------------------------------------------
+# 8. REMOVE TAG FROM LOCATION (Public)
+# ---------------------------------------------------------------------
 @router.delete("/{location_id}/tags/{tag_id}")
 def remove_tag_from_location(
     location_id: uuid.UUID,
     tag_id: int,
     db: Session = Depends(get_db),
-    user=Depends(get_current_user)
 ):
     link = db.query(LocationTag).filter(
         LocationTag.location_id == location_id,

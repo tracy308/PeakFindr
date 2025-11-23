@@ -1,52 +1,46 @@
 # app/routers/tags.py
-from typing import List
 
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Tag
 from app.schemas.location import TagCreate, TagResponse
-from app.utils.security import get_current_user
 
 router = APIRouter()
 
 
 # -----------------------------------------
-# 1. LIST ALL TAGS
+# 1. LIST ALL TAGS (Public)
 # -----------------------------------------
-
 @router.get("/", response_model=List[TagResponse])
 def list_tags(
     db: Session = Depends(get_db),
-    user=Depends(get_current_user)
 ):
     """
     Returns the list of all tags.
-    Used for filter screens & admin creation UI.
+    Used for filter screens, search screens,
+    and tag selection during location creation.
     """
     tags = db.query(Tag).order_by(Tag.name.asc()).all()
     return tags
 
 
-
 # -----------------------------------------
-# 2. CREATE NEW TAG
+# 2. CREATE NEW TAG (Public)
 # -----------------------------------------
-
 @router.post("/", response_model=TagResponse)
 def create_tag(
     payload: TagCreate,
     db: Session = Depends(get_db),
-    user=Depends(get_current_user)
 ):
     """
     Create a new tag.
-    MVP: Everyone can create.
-    Later: Restrict to admin only.
+    MVP: Public endpoint.
+    Future: Restrict to admin only.
     """
-
-    # Check duplicate tag
+    # Check duplicate
     existing = db.query(Tag).filter(Tag.name == payload.name).first()
     if existing:
         raise HTTPException(status_code=400, detail="Tag already exists")
@@ -59,23 +53,18 @@ def create_tag(
     return new_tag
 
 
-
 # -----------------------------------------
-# 3. DELETE TAG (optional, admin later)
+# 3. DELETE TAG (Public — may restrict later)
 # -----------------------------------------
-
 @router.delete("/{tag_id}")
 def delete_tag(
     tag_id: int,
     db: Session = Depends(get_db),
-    user=Depends(get_current_user)
 ):
     """
     Delete a tag.
-    This does NOT break locations:
-      - association table has ON DELETE CASCADE
+    Safe due to ON DELETE CASCADE on link table.
     """
-
     tag = db.query(Tag).filter(Tag.id == tag_id).first()
 
     if not tag:
