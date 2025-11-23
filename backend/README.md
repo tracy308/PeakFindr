@@ -126,7 +126,7 @@ PeakFindr automatically creates tables on startup (no Alembic required yet).
 Run:
 
 ```bash
-python main.py
+uvicorn app.main:app --reload
 ```
 
 If the database is reachable, SQLAlchemy will create all tables defined in `models/`.
@@ -138,7 +138,7 @@ If the database is reachable, SQLAlchemy will create all tables defined in `mode
 Start FastAPI:
 
 ```bash
-python main.py
+uvicorn app.main:app --reload
 ```
 
 ### Visit:
@@ -150,27 +150,265 @@ python main.py
 ---
 
 
-## API Reference (Auth & Locations)
+## 📚 Complete API Reference
 
-### Auth
+All authenticated endpoints require the `X-User-ID` header containing the user's UUID.
 
-| Method | Endpoint        | Description              | Request Body |
-| ------ | --------------- | ------------------------ | ------------ |
-| POST   | `/auth/register` | Register a new user      | `{ "email": str, "username": str, "password": str }`
-| POST   | `/auth/login`    | Log in and validate user | `{ "email": str, "password": str }`
-| GET    | `/auth/me`       | Debug header echo        | Header `X-User-ID`
+---
 
-### Locations
+### 🔐 Authentication (`/auth`)
 
-| Method | Endpoint                         | Description                        | Request Body |
-| ------ | -------------------------------- | ---------------------------------- | ------------ |
-| GET    | `/locations/`                    | List locations (optional filters)  | Query params `area`, `price_level` |
-| POST   | `/locations/`                    | Create location                    | `LocationCreate` schema |
-| GET    | `/locations/{location_id}`       | Get location details               | — |
-| PUT    | `/locations/{location_id}`       | Update location                    | `LocationUpdate` schema |
-| DELETE | `/locations/{location_id}`       | Delete location                    | — |
-| POST   | `/locations/{location_id}/images`| Upload location image (multipart)  | file form-data |
-| POST   | `/locations/{location_id}/tags`  | Add tags to location               | `{ "tags": [str, ...] }`
-| DELETE | `/locations/{location_id}/tags/{tag_id}` | Remove tag from location | — |
+| Method | Endpoint | Description | Headers | Request Body | Response |
+|--------|----------|-------------|---------|--------------|----------|
+| **POST** | `/auth/register` | Register new user | — | `{ "email": "user@example.com", "username": "peak_user", "password": "SecurePass123" }` | `{ "message": "User registered successfully", "user_id": "uuid", "email": "...", "username": "..." }` |
+| **POST** | `/auth/login` | Authenticate user | — | `{ "email": "user@example.com", "password": "SecurePass123" }` | `{ "message": "Login successful", "user_id": "uuid", "email": "...", "username": "..." }` |
+| **GET** | `/auth/me` | Debug header check | `X-User-ID: <uuid>` | — | `{ "message": "Header received", "user_id": "uuid" }` |
+
+---
+
+### 📍 Locations (`/locations`)
+
+| Method | Endpoint | Description | Headers | Request Body | Response |
+|--------|----------|-------------|---------|--------------|----------|
+| **GET** | `/locations/` | List all locations | `X-User-ID` | Query: `?area=<str>&price_level=<int>` | `[{ "id": "uuid", "name": "...", "description": "...", "maps_url": "...", "price_level": 1-4, "area": "...", "created_at": "..." }, ...]` |
+| **POST** | `/locations/` | Create location | `X-User-ID` | `{ "name": "Peak Tower", "description": "...", "maps_url": "...", "price_level": 2, "area": "Central" }` | `LocationResponse` |
+| **GET** | `/locations/{location_id}` | Get location + images + tags | `X-User-ID` | — | `{ "location": {...}, "images": [...], "tags": [...] }` |
+| **PUT** | `/locations/{location_id}` | Update location | `X-User-ID` | `{ "name": "New Name", "price_level": 3 }` (partial) | `LocationResponse` |
+| **DELETE** | `/locations/{location_id}` | Delete location | `X-User-ID` | — | `{ "message": "Location deleted" }` |
+| **POST** | `/locations/{location_id}/images` | Upload location image | `X-User-ID` | `multipart/form-data` with `file` | `{ "id": 1, "location_id": "uuid", "file_path": "...", "created_at": "..." }` |
+| **POST** | `/locations/{location_id}/tags` | Add tags to location | `X-User-ID` | `{ "tags": ["hiking", "scenic"] }` | `{ "added_tags": [{ "id": 1, "name": "hiking" }, ...] }` |
+| **DELETE** | `/locations/{location_id}/tags/{tag_id}` | Remove tag from location | `X-User-ID` | — | `{ "message": "Tag removed" }` |
+
+---
+
+### ⭐ Reviews (`/reviews`)
+
+| Method | Endpoint | Description | Headers | Request Body | Response |
+|--------|----------|-------------|---------|--------------|----------|
+| **POST** | `/reviews/` | Create review | `X-User-ID` | `{ "location_id": "uuid", "rating": 5, "comment": "Amazing!" }` | `{ "id": "uuid", "user_id": "uuid", "location_id": "uuid", "rating": 5, "comment": "...", "created_at": "..." }` |
+| **GET** | `/reviews/location/{location_id}` | Get reviews for location | `X-User-ID` | — | `[{ "review": {...}, "photos": [...] }, ...]` |
+| **PUT** | `/reviews/{review_id}` | Update own review | `X-User-ID` | `{ "rating": 4, "comment": "Updated" }` (partial) | `ReviewResponse` |
+| **DELETE** | `/reviews/{review_id}` | Delete own review | `X-User-ID` | — | `{ "message": "Review deleted" }` |
+| **POST** | `/reviews/{review_id}/photos` | Upload review photo | `X-User-ID` | `multipart/form-data` with `file` | `{ "id": 1, "review_id": "uuid", "file_path": "...", "created_at": "..." }` |
+
+---
+
+### 💬 Chat (`/chat`)
+
+| Method | Endpoint | Description | Headers | Request Body | Response |
+|--------|----------|-------------|---------|--------------|----------|
+| **POST** | `/chat/{location_id}` | Send message to location chat | `X-User-ID` | `{ "message": "Hello everyone!" }` | `{ "id": 1, "location_id": "uuid", "user_id": "uuid", "message": "...", "created_at": "..." }` |
+| **GET** | `/chat/{location_id}` | Get messages for location | `X-User-ID` | — | `[{ "id": 1, "location_id": "uuid", "user_id": "uuid", "message": "...", "created_at": "..." }, ...]` |
+
+---
+
+### 🏷️ Tags (`/tags`)
+
+| Method | Endpoint | Description | Headers | Request Body | Response |
+|--------|----------|-------------|---------|--------------|----------|
+| **GET** | `/tags/` | List all tags | `X-User-ID` | — | `[{ "id": 1, "name": "hiking" }, ...]` |
+| **POST** | `/tags/` | Create new tag | `X-User-ID` | `{ "name": "mountain" }` | `{ "id": 2, "name": "mountain" }` |
+| **DELETE** | `/tags/{tag_id}` | Delete tag | `X-User-ID` | — | `{ "message": "Tag deleted successfully" }` |
+
+---
+
+### 🤝 User Interactions (`/interactions`)
+
+| Method | Endpoint | Description | Headers | Request Body | Response |
+|--------|----------|-------------|---------|--------------|----------|
+| **POST** | `/interactions/like/{location_id}` | Like a location | `X-User-ID` | — | `{ "message": "Location liked" }` |
+| **DELETE** | `/interactions/like/{location_id}` | Unlike a location | `X-User-ID` | — | `{ "message": "Like removed" }` |
+| **GET** | `/interactions/likes` | Get user's liked locations | `X-User-ID` | — | `[{ "user_id": "uuid", "location_id": "uuid", "created_at": "..." }, ...]` |
+| **POST** | `/interactions/save/{location_id}` | Save a location | `X-User-ID` | — | `{ "message": "Location saved" }` |
+| **DELETE** | `/interactions/save/{location_id}` | Unsave a location | `X-User-ID` | — | `{ "message": "Removed from saved" }` |
+| **GET** | `/interactions/saved` | Get user's saved locations | `X-User-ID` | — | `[{ "user_id": "uuid", "location_id": "uuid", "created_at": "..." }, ...]` |
+| **POST** | `/interactions/visit/{location_id}` | Record a visit | `X-User-ID` | — | `{ "message": "Visit recorded", "visit_id": "uuid" }` |
+| **GET** | `/interactions/visits` | Get user's visits | `X-User-ID` | — | `[{ "id": 1, "user_id": "uuid", "location_id": "uuid", "created_at": "..." }, ...]` |
+
+---
+
+## 📱 Frontend Integration Guide
+
+### Swift/iOS Setup
+
+#### 1. Create API Client Service
+
+```swift
+import Foundation
+
+class APIClient {
+    static let shared = APIClient()
+    private let baseURL = "http://localhost:8000"
+    
+    private init() {}
+    
+    func request<T: Decodable>(
+        endpoint: String,
+        method: String = "GET",
+        body: Encodable? = nil,
+        userId: String? = nil
+    ) async throws -> T {
+        guard let url = URL(string: "\(baseURL)\(endpoint)") else {
+            throw URLError(.badURL)
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        // Add auth header
+        if let userId = userId {
+            request.setValue(userId, forHTTPHeaderField: "X-User-ID")
+        }
+        
+        // Encode body
+        if let body = body {
+            request.httpBody = try JSONEncoder().encode(body)
+        }
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
+            throw URLError(.badServerResponse)
+        }
+        
+        return try JSONDecoder().decode(T.self, from: data)
+    }
+}
+```
+
+#### 2. Define Models
+
+```swift
+struct LoginRequest: Encodable {
+    let email: String
+    let password: String
+}
+
+struct LoginResponse: Decodable {
+    let message: String
+    let user_id: String
+    let email: String
+    let username: String
+}
+
+struct Location: Decodable, Identifiable {
+    let id: String
+    let name: String
+    let description: String?
+    let maps_url: String?
+    let price_level: Int?
+    let area: String?
+    let created_at: String
+}
+```
+
+#### 3. Create Service Layer
+
+```swift
+class AuthService {
+    static let shared = AuthService()
+    private let client = APIClient.shared
+    
+    func login(email: String, password: String) async throws -> LoginResponse {
+        let body = LoginRequest(email: email, password: password)
+        return try await client.request(
+            endpoint: "/auth/login",
+            method: "POST",
+            body: body
+        )
+    }
+    
+    func register(email: String, username: String, password: String) async throws -> LoginResponse {
+        let body = ["email": email, "username": username, "password": password]
+        return try await client.request(
+            endpoint: "/auth/register",
+            method: "POST",
+            body: body
+        )
+    }
+}
+
+class LocationService {
+    static let shared = LocationService()
+    private let client = APIClient.shared
+    
+    func fetchLocations(userId: String) async throws -> [Location] {
+        return try await client.request(
+            endpoint: "/locations/",
+            userId: userId
+        )
+    }
+    
+    func likeLocation(locationId: String, userId: String) async throws -> MessageResponse {
+        return try await client.request(
+            endpoint: "/interactions/like/\(locationId)",
+            method: "POST",
+            userId: userId
+        )
+    }
+}
+```
+
+#### 4. Use in SwiftUI Views
+
+```swift
+struct LoginView: View {
+    @State private var email = ""
+    @State private var password = ""
+    @State private var errorMessage: String?
+    @EnvironmentObject var authViewModel: AuthViewModel
+    
+    var body: some View {
+        VStack {
+            TextField("Email", text: $email)
+            SecureField("Password", text: $password)
+            
+            Button("Login") {
+                Task {
+                    do {
+                        let response = try await AuthService.shared.login(
+                            email: email,
+                            password: password
+                        )
+                        authViewModel.userId = response.user_id
+                    } catch {
+                        errorMessage = error.localizedDescription
+                    }
+                }
+            }
+        }
+    }
+}
+```
+
+### Key Integration Points
+
+1. **Authentication Flow**
+   - Call `/auth/register` or `/auth/login`
+   - Store returned `user_id` in UserDefaults or Keychain
+   - Include `user_id` in `X-User-ID` header for all subsequent requests
+
+2. **Location Discovery**
+   - Fetch locations with `/locations/`
+   - Display in swipe cards or list
+   - Use `/interactions/like/{id}` for swipe right
+   - Use `/interactions/save/{id}` for bookmarking
+
+3. **Reviews & Ratings**
+   - POST to `/reviews/` after user visits
+   - GET from `/reviews/location/{id}` to display on detail pages
+   - Upload photos with multipart form data to `/reviews/{id}/photos`
+
+4. **Real-time Chat**
+   - POST messages to `/chat/{location_id}`
+   - Poll GET `/chat/{location_id}` every few seconds (or use WebSockets later)
+
+5. **Error Handling**
+   - 401: User not authenticated → redirect to login
+   - 403: Permission denied → show error toast
+   - 404: Resource not found → show not found UI
+   - 400: Validation error → display field errors
 
 ---
