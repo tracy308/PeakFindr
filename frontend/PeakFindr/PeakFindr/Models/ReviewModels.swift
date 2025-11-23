@@ -22,7 +22,8 @@ struct ReviewResponse: Codable, Identifiable, Equatable {
 }
 
 struct ReviewWithPhotos: Codable, Identifiable, Equatable {
-    let id: String
+    var id: String { review.id }
+
     let review: ReviewResponse
     let photos: [ReviewPhoto]
 }
