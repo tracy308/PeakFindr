@@ -1,0 +1,83 @@
+# ============================
+# Xcode & Swift Project
+# ============================
+
+# Build products
+build/
+DerivedData/
+Build/
+
+# SwiftPM
+.swiftpm/
+.build/
+
+# CocoaPods
+Pods/
+Podfile.lock
+*.xcworkspace
+
+# Carthage
+Carthage/Build/
+
+# Xcode user data
+xcuserdata/
+xcshareddata/WorkspaceSettings.xcsettings
+*.xcuserstate
+
+# Xcode logs
+*.xcactivitylog
+*.xccheckout
+
+# SwiftLint / tools
+.swiftlint.tmp
+.swiftformat
+
+# Generated files
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Simulator-specific data
+*.xccrashpoint
+*.moved-aside
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor backups
+*~
+*.swp
+*.swo
+
+# Keychain files (if generated)
+*.keychain
+*.keychain-db
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+
+# Environment files
+.env
+.env.*
+Secrets.plist
+Secrets.xcconfig
+
+# ============================
+# Project-specific
+# ============================
+
+# Mock server / temporary JSON
+mock-data/
+mock-server/
+
+# Your peak sample images (optional)
+Resources/*.png
+
+# Ignore Zip outputs
+*.zip
+
