@@ -24,6 +24,10 @@ class Location(Base):
 
     price_level: Mapped[int | None] = mapped_column(Integer, nullable=True)  # e.g., 1–4
     area: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    region: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    duration: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    opening_hours: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

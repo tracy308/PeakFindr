@@ -16,6 +16,10 @@ class LocationBase(BaseModel):
     summary: Optional[str] = None
     duration: Optional[str] = None
     opening_hours: Optional[str] = None
+    region: Optional[str] = None
+    summary: Optional[str] = None
+    duration: Optional[str] = None
+    opening_hours: Optional[str] = None
 
 class LocationCreate(LocationBase):
     pass
@@ -92,10 +96,6 @@ class LocationTagUpdate(BaseModel):
 
 
 class LocationTagResponse(LocationTagBase):
-    model_config = ConfigDict(from_attributes=True)
-
-
-class LocationTagsRequest(BaseModel):
     tags: List[str]
 
 

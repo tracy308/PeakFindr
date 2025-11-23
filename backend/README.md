@@ -89,6 +89,16 @@ Exit psql:
 \q
 ```
 
+### 6. Apply latest migrations
+
+Until Alembic is wired up, run the provided SQL scripts manually whenever new columns are introduced.
+
+```bash
+psql -d peakfindr -f backend/migrations/20251123_add_location_optional_fields.sql
+```
+
+> Adjust the database name/connection flags if you use a different user or host.
+
 ---
 
 ## Environment File Setup
