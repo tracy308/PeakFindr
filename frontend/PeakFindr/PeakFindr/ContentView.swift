@@ -21,6 +21,8 @@ struct ContentView: View {
             }
             .tabItem { Label("Profile", systemImage: "person.crop.circle") }
         }
+        .tint(Color(red: 176/255, green: 62/255, blue: 55/255))
+        
         .onAppear {
             if let uid = authVM.userId {
                 profileVM.refreshAll(userId: uid, username: authVM.username, email: authVM.email)

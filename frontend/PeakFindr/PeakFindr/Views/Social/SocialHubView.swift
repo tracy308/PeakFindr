@@ -37,6 +37,7 @@ struct SocialHubView: View {
                 .listStyle(.plain)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .navigationTitle("Social Hub")
         .navigationBarTitleDisplayMode(.inline)
         .task { await loadRooms() }

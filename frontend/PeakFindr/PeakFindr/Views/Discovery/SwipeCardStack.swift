@@ -6,59 +6,96 @@ struct SwipeCardStack: View {
     var onSave: (LocationResponse) -> Void
     var onTapTop: (LocationResponse) -> Void
 
-    @State private var dragOffsets: [String: CGSize] = [:]
+    @State private var dragOffset: CGSize = .zero
+
+    // How many cards you want visible at once
+    private let maxVisibleCards = 3
 
     var body: some View {
-        ZStack(alignment: .top) {
-            // Render bottom -> top so the top card is last in the ZStack
-            ForEach(Array(locations.enumerated()), id: \.element.id) { index, loc in
+        ZStack {
+            let visible = Array(locations.prefix(maxVisibleCards))
+
+            ForEach(Array(visible.enumerated()), id: \.element.id) { index, loc in
                 let isTop = index == 0
+
                 LocationCardView(location: loc)
-                    .offset(offset(for: loc, index: index))
-                    .scaleEffect(scale(for: index))
-                    .zIndex(Double(locations.count - index))
+                    // Tiny vertical offset so you can see there's a stack,
+                    // but the card itself stays same size.
+                    .offset(y: CGFloat(index) * 8)
+                    // Apply drag only to the top card
+                    .offset(isTop ? dragOffset : .zero)
+                    .rotationEffect(
+                        isTop
+                        ? Angle(degrees: Double(dragOffset.width / 10))
+                        : .zero
+                    )
+                    .shadow(radius: isTop ? 10 : 4)
+                    .zIndex(Double(maxVisibleCards - index))
+                    .allowsHitTesting(isTop)
+                    .onTapGesture {
+                        if isTop { onTapTop(loc) }
+                    }
                     .gesture(
                         DragGesture()
                             .onChanged { value in
                                 guard isTop else { return }
-                                dragOffsets[loc.id] = value.translation
+                                withAnimation(.interactiveSpring()) {
+                                    dragOffset = value.translation
+                                }
                             }
                             .onEnded { value in
                                 guard isTop else { return }
-                                handleEnd(value, loc: loc)
+                                handleEnd(value: value, loc: loc)
                             }
                     )
-                    .onTapGesture {
-                        if isTop { onTapTop(loc) }
-                    }
+                    // This controls how cards animate in/out of the stack
+                    .transition(
+                        .asymmetric(
+                            insertion: .move(edge: .bottom).combined(with: .opacity),
+                            removal: .move(edge: .top).combined(with: .opacity)
+                        )
+                    )
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        // Animate when the underlying locations array changes
+        .animation(
+            .spring(response: 0.35, dampingFraction: 0.85),
+            value: locations
+        )
     }
 
-    private func scale(for index: Int) -> CGFloat {
-        // Slightly smaller for deeper cards
-        let delta = min(CGFloat(index) * 0.02, 0.08)
-        return 1.0 - delta
-    }
-
-    private func offset(for loc: LocationResponse, index: Int) -> CGSize {
-        // Index 0 is top card, bigger index sits behind slightly lower
-        let base = CGSize(width: 0, height: CGFloat(index) * 10)
-        let drag = dragOffsets[loc.id] ?? .zero
-        return CGSize(width: base.width + drag.width, height: base.height + drag.height)
-    }
-
-    private func handleEnd(_ value: DragGesture.Value, loc: LocationResponse) {
-        let t = value.translation.width
+    private func handleEnd(value: DragGesture.Value, loc: LocationResponse) {
+        let translation = value.translation.width
         let threshold: CGFloat = 120
 
-        if t < -threshold {
-            onSkip(loc)
-        } else if t > threshold {
-            onSave(loc)
-        }
+        if translation < -threshold {
+            // Swipe left = skip
+            withAnimation(.spring()) {
+                // fling off to the left
+                dragOffset = CGSize(width: -600, height: 0)
+            }
+            // Remove after the fling starts
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                dragOffset = .zero
+                onSkip(loc)
+            }
 
-        dragOffsets[loc.id] = .zero
+        } else if translation > threshold {
+            // Swipe right = save
+            withAnimation(.spring()) {
+                // fling off to the right
+                dragOffset = CGSize(width: 600, height: 0)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                dragOffset = .zero
+                onSave(loc)
+            }
+
+        } else {
+            // Not far enough -> snap back
+            withAnimation(.spring()) {
+                dragOffset = .zero
+            }
+        }
     }
 }

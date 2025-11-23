@@ -45,11 +45,15 @@ struct DiscoveryView: View {
                 SwipeCardStack(
                     locations: filteredLocations,
                     onSkip: { loc in
-                        discoveryVM.removeTop(loc)
+                        withAnimation(.spring()) {
+                            discoveryVM.removeTop(loc)
+                        }
                     },
                     onSave: { loc in
-                        Task { await likeAndSave(loc) }
-                        discoveryVM.removeTop(loc)
+                        withAnimation(.spring()) {
+                            Task { await likeAndSave(loc) }
+                            discoveryVM.removeTop(loc)
+                        }
                     },
                     onTapTop: { loc in
                         activeLocation = loc
