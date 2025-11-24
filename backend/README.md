@@ -94,6 +94,7 @@ Exit psql:
 Until Alembic is wired up, run the provided SQL scripts manually whenever new columns are introduced.
 
 ```bash
+psql -d peakfindr -f backend/migrations/20250209_add_points_and_chat_tables.sql
 psql -d peakfindr -f backend/migrations/20251123_add_location_optional_fields.sql
 ```
 
