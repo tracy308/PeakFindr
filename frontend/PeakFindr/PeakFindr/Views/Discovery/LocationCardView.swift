@@ -18,14 +18,16 @@ struct LocationCardView: View {
                         Color.gray.opacity(0.2)
                     }
                 )
-
+                .aspectRatio(contentMode: .fill)
                 LinearGradient(
                     colors: [.clear, .black.opacity(0.55)],
                     startPoint: .top,
                     endPoint: .bottom
                 )
 
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Spacer()
+                    Spacer()
                     Text(location.name)
                         .font(.headline)
                         .foregroundColor(.white)
@@ -33,10 +35,10 @@ struct LocationCardView: View {
                     Text(location.area ?? "Hong Kong")
                         .font(.subheadline)
                         .foregroundColor(.white.opacity(0.85))
+                    Spacer()
                 }
-                .padding()
             }
-            .frame(height: 200)
+            .frame(width: 350, height: 200)
             .cornerRadius(12)
             .clipped()
 

@@ -23,7 +23,7 @@ struct ChatBotView: View {
                     }
                     .padding()
                 }
-                .onChange(of: messages.count) { _ in
+                .onChange(of: messages.count) {
                     if let last = messages.last?.id {
                         withAnimation { proxy.scrollTo(last, anchor: .bottom) }
                     }
