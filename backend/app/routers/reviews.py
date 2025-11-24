@@ -68,7 +68,76 @@ def create_review(
 
 
 # ------------------------------------
-# 2. LIST REVIEWS FOR A LOCATION
+# 2. GET SINGLE REVIEW BY ID
+# ------------------------------------
+
+@router.get("/{review_id}", response_model=ReviewWithPhotosResponse)
+def get_review_by_id(
+    review_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user)
+):
+    """
+    Get a single review by its ID, including photos.
+    """
+    review = db.query(Review).filter(Review.id == review_id).first()
+    
+    if not review:
+        raise HTTPException(status_code=404, detail="Review not found")
+    
+    photos = (
+        db.query(ReviewPhoto)
+        .filter(ReviewPhoto.review_id == review_id)
+        .all()
+    )
+    
+    return {
+        "review": review,
+        "photos": photos
+    }
+
+
+# ------------------------------------
+# 3. LIST ALL REVIEWS (Public)
+# ------------------------------------
+
+@router.get("/", response_model=List[ReviewWithPhotosResponse])
+def get_all_reviews(
+    limit: int = 50,
+    offset: int = 0,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user)
+):
+    """
+    Returns all reviews with photos, paginated.
+    Useful for admin views or public review feeds.
+    """
+    reviews = (
+        db.query(Review)
+        .order_by(Review.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+        .all()
+    )
+    
+    results = []
+    for r in reviews:
+        photos = (
+            db.query(ReviewPhoto)
+            .filter(ReviewPhoto.review_id == r.id)
+            .all()
+        )
+        
+        results.append({
+            "review": r,
+            "photos": photos
+        })
+    
+    return results
+
+
+# ------------------------------------
+# 4. LIST REVIEWS FOR A LOCATION
 # ------------------------------------
 
 @router.get("/location/{location_id}", response_model=List[ReviewWithPhotosResponse])
@@ -99,9 +168,81 @@ def get_reviews_for_location(
     return results
 
 
+# ------------------------------------
+# 5. LIST REVIEWS BY USER
+# ------------------------------------
+
+@router.get("/user/{user_id}", response_model=List[ReviewWithPhotosResponse])
+def get_reviews_by_user(
+    user_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user)
+):
+    """
+    Returns all reviews created by a specific user, with photos.
+    Useful for user profile pages.
+    """
+    reviews = (
+        db.query(Review)
+        .filter(Review.user_id == user_id)
+        .order_by(Review.created_at.desc())
+        .all()
+    )
+    
+    results = []
+    for r in reviews:
+        photos = (
+            db.query(ReviewPhoto)
+            .filter(ReviewPhoto.review_id == r.id)
+            .all()
+        )
+        
+        results.append({
+            "review": r,
+            "photos": photos
+        })
+    
+    return results
+
 
 # ------------------------------------
-# 3. UPDATE REVIEW
+# 6. GET CURRENT USER'S REVIEWS
+# ------------------------------------
+
+@router.get("/me/reviews", response_model=List[ReviewWithPhotosResponse])
+def get_my_reviews(
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user)
+):
+    """
+    Returns all reviews created by the authenticated user.
+    """
+    reviews = (
+        db.query(Review)
+        .filter(Review.user_id == user.id)
+        .order_by(Review.created_at.desc())
+        .all()
+    )
+    
+    results = []
+    for r in reviews:
+        photos = (
+            db.query(ReviewPhoto)
+            .filter(ReviewPhoto.review_id == r.id)
+            .all()
+        )
+        
+        results.append({
+            "review": r,
+            "photos": photos
+        })
+    
+    return results
+
+
+
+# ------------------------------------
+# 7. UPDATE REVIEW
 # ------------------------------------
 
 @router.put("/{review_id}", response_model=ReviewResponse)
@@ -142,7 +283,7 @@ def update_review(
 
 
 # ------------------------------------
-# 4. DELETE REVIEW
+# 8. DELETE REVIEW
 # ------------------------------------
 
 @router.delete("/{review_id}")
@@ -171,7 +312,7 @@ def delete_review(
 
 
 # ------------------------------------
-# 5. UPLOAD REVIEW PHOTO
+# 9. UPLOAD REVIEW PHOTO
 # ------------------------------------
 
 @router.post("/{review_id}/photos", response_model=ReviewPhotoResponse)

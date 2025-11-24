@@ -198,7 +198,11 @@ Only endpoints that need user context require the `X-User-ID` header. In the tab
 | Method | Endpoint | Description | Headers | Request Body | Response |
 |--------|----------|-------------|---------|--------------|----------|
 | **POST** | `/reviews/` | Create review | `X-User-ID` | `{ "location_id": "uuid", "rating": 5, "comment": "Amazing!" }` | `{ "id": "uuid", "user_id": "uuid", "location_id": "uuid", "rating": 5, "comment": "...", "created_at": "..." }` |
+| **GET** | `/reviews/` | Get all reviews (paginated) | `X-User-ID` | Query: `?limit=50&offset=0` | `[{ "review": {...}, "photos": [...] }, ...]` |
+| **GET** | `/reviews/{review_id}` | Get single review by ID | `X-User-ID` | — | `{ "review": {...}, "photos": [...] }` |
 | **GET** | `/reviews/location/{location_id}` | Get reviews for location | `X-User-ID` | — | `[{ "review": {...}, "photos": [...] }, ...]` |
+| **GET** | `/reviews/user/{user_id}` | Get all reviews by a user | `X-User-ID` | — | `[{ "review": {...}, "photos": [...] }, ...]` |
+| **GET** | `/reviews/me/reviews` | Get current user's reviews | `X-User-ID` | — | `[{ "review": {...}, "photos": [...] }, ...]` |
 | **PUT** | `/reviews/{review_id}` | Update own review | `X-User-ID` | `{ "rating": 4, "comment": "Updated" }` (partial) | `ReviewResponse` |
 | **DELETE** | `/reviews/{review_id}` | Delete own review | `X-User-ID` | — | `{ "message": "Review deleted" }` |
 | **POST** | `/reviews/{review_id}/photos` | Upload review photo | `X-User-ID` | `multipart/form-data` with `file` | `{ "id": 1, "review_id": "uuid", "file_path": "...", "created_at": "..." }` |
