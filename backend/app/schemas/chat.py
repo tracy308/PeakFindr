@@ -23,6 +23,7 @@ class ChatMessageResponse(ChatMessageBase):
     location_id: UUID
     user_id: Optional[UUID] = None
     created_at: datetime
+    username: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -55,5 +56,6 @@ class ChatRoomMessageResponse(ChatRoomMessageBase):
     room_id: UUID
     user_id: Optional[UUID] = None
     created_at: datetime
+    username: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)

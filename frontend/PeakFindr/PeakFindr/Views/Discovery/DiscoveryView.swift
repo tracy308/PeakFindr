@@ -25,11 +25,14 @@ struct DiscoveryView: View {
                 Spacer()
                 ProgressView()
                 Spacer()
-            } else if let err = discoveryVM.error {
+            }
+            else if let err = discoveryVM.error {
                 Spacer()
-                Text(err).foregroundColor(.red)
+                Text(err)
+                    .foregroundColor(.red)
                 Spacer()
-            } else if filteredLocations.isEmpty {
+            }
+            else if filteredLocations.isEmpty {
                 Spacer()
                 VStack(spacing: 10) {
                     Image(systemName: "sparkles")
@@ -41,7 +44,8 @@ struct DiscoveryView: View {
                         .foregroundColor(.secondary)
                 }
                 Spacer()
-            } else {
+            }
+            else {
                 SwipeCardStack(
                     locations: filteredLocations,
                     onSkip: { loc in
@@ -62,21 +66,25 @@ struct DiscoveryView: View {
                 )
                 .padding(.horizontal)
                 .padding(.top, 8)
-            }
 
-            NavigationLink(
-                destination: DetailView(location: activeLocation),
-                isActive: $navigateToDetail
-            ) { EmptyView() }
+                Spacer()
+            }
         }
         .navigationTitle("Today's Discovery")
         .navigationBarTitleDisplayMode(.inline)
-        .task { await discoveryVM.loadLocations() }
+        .task {
+            await discoveryVM.loadLocations()
+        }
+        .navigationDestination(isPresented: $navigateToDetail) {
+            DetailView(location: activeLocation)
+        }
     }
+
+    // MARK: - HEADER
 
     private var header: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 14)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(
                     LinearGradient(
                         colors: [
@@ -88,12 +96,12 @@ struct DiscoveryView: View {
                         endPoint: .bottomTrailing
                     )
                 )
-                .frame(height: 160)
+                .frame(height: 200)
                 .padding(.horizontal)
 
             VStack(spacing: 8) {
                 Image(systemName: "wand.and.stars")
-                    .font(.system(size: 26, weight: .semibold))
+                    .font(.system(size: 30, weight: .semibold))
                     .foregroundColor(.yellow)
 
                 Text("Today's Discovery")
@@ -105,8 +113,10 @@ struct DiscoveryView: View {
                     .foregroundColor(.white.opacity(0.95))
             }
         }
-        .padding(.top)
+        .padding(.top, 6)
     }
+
+    // MARK: - FILTER BAR
 
     private var filterBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -117,12 +127,18 @@ struct DiscoveryView: View {
                         .padding(.vertical, 8)
                         .padding(.horizontal, 16)
                         .background(
-                            Capsule().fill(selectedCategory == cat
-                                           ? Color(red: 176/255, green: 62/255, blue: 55/255)
-                                           : Color(.systemGray5))
+                            Capsule().fill(
+                                selectedCategory == cat
+                                ? Color(red: 176/255, green: 62/255, blue: 55/255)
+                                : Color(.systemGray5)
+                            )
                         )
                         .foregroundColor(selectedCategory == cat ? .white : .primary)
-                        .onTapGesture { selectedCategory = cat }
+                        .onTapGesture {
+                            withAnimation(.easeInOut(duration: 0.18)) {
+                                selectedCategory = cat
+                            }
+                        }
                 }
             }
             .padding(.horizontal)
@@ -130,13 +146,15 @@ struct DiscoveryView: View {
         }
     }
 
+    // MARK: - FILTERED RESULTS
+
     private var filteredLocations: [LocationResponse] {
         let all = discoveryVM.locations
         guard selectedCategory != .all else { return all }
 
-        func contains(_ s: String?, _ keywords: [String]) -> Bool {
-            guard let s = s?.lowercased() else { return false }
-            return keywords.contains(where: { s.contains($0) })
+        func contains(_ text: String?, keywords: [String]) -> Bool {
+            guard let t = text?.lowercased() else { return false }
+            return keywords.contains(where: { t.contains($0) })
         }
 
         return all.filter { loc in
@@ -145,23 +163,25 @@ struct DiscoveryView: View {
 
             switch selectedCategory {
             case .food:
-                return contains(desc, ["restaurant","cafe","food","eat","dine"]) ||
-                       ["restaurant","cafe","food","eat","dine"].contains(where: name.contains)
+                return contains(desc, keywords: ["restaurant","cafe","food","eat","dine"])
+                    || ["restaurant","cafe","food","eat","dine"].contains(where: name.contains)
             case .hiking:
-                return contains(desc, ["trail","hike","peak","mount","mountain","walk"]) ||
-                       ["trail","hike","peak","mount","mountain","walk"].contains(where: name.contains)
+                return contains(desc, keywords: ["trail","hike","peak","mount","mountain","walk"])
+                    || ["trail","hike","peak","mount","mountain","walk"].contains(where: name.contains)
             case .sights:
-                return contains(desc, ["view","scenic","park","museum","temple","beach","garden","lookout"]) ||
-                       ["view","scenic","park","museum","temple","beach","garden","lookout"].contains(where: name.contains)
+                return contains(desc, keywords: ["view","scenic","park","museum","temple","beach","garden","lookout"])
+                    || ["view","scenic","park","museum","temple","beach","garden","lookout"].contains(where: name.contains)
             case .all:
                 return true
             }
         }
     }
 
+    // MARK: - SAVE + LIKE
+
     private func likeAndSave(_ loc: LocationResponse) async {
-        guard let id = authVM.userId else { return }
-        _ = try? await InteractionService.shared.like(locationId: loc.id, userId: id)
-        _ = try? await InteractionService.shared.save(locationId: loc.id, userId: id)
+        guard let uid = authVM.userId else { return }
+        _ = try? await InteractionService.shared.like(locationId: loc.id, userId: uid)
+        _ = try? await InteractionService.shared.save(locationId: loc.id, userId: uid)
     }
 }

@@ -3,7 +3,7 @@ from fastapi import FastAPI
 
 from app.database import engine, Base
 from app import models  # ensures all models are imported & registered
-from app.routers import auth, chat, locations, interactions, reviews, tags, users
+from app.routers import auth, chat, locations, interactions, reviews, tags, users, chatbot
 
 app = FastAPI()
 
@@ -20,6 +20,7 @@ app.include_router(locations.router, prefix="/locations")
 app.include_router(interactions.router, prefix="/interactions")
 app.include_router(reviews.router, prefix="/reviews")
 app.include_router(tags.router, prefix="/tags")
+app.include_router(chatbot.router, prefix="/chatbot")
 
 @app.get("/")
 def root():

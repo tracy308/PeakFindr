@@ -47,16 +47,19 @@ class UserVisitBase(_UserLocationBase):
 
 class UserVisitCreate(UserVisitBase):
     created_at: Optional[datetime] = None
+    points_earned: int = 0
 
 
 class UserVisitUpdate(BaseModel):
     user_id: Optional[UUID] = None
     location_id: Optional[UUID] = None
     created_at: Optional[datetime] = None
+    points_earned: Optional[int] = None
 
 
 class UserVisitResponse(UserVisitBase):
     id: int
     created_at: datetime
+    points_earned: int
 
     model_config = ConfigDict(from_attributes=True)

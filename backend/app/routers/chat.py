@@ -13,7 +13,7 @@ from fastapi import (
 from sqlalchemy.orm import Session
 
 from app.database import get_db, SessionLocal
-from app.models import ChatMessage, Location, ChatRoom, ChatRoomMessage
+from app.models import ChatMessage, Location, ChatRoom, ChatRoomMessage, User
 from app.schemas.chat import (
     ChatMessageCreate,
     ChatMessageResponse,
@@ -28,6 +28,28 @@ from app.utils.security import get_current_user
 router = APIRouter()
 
 MAX_MESSAGES = 200   # Limit per location
+
+
+def serialize_chat_message(message: ChatMessage, username: str | None = None) -> ChatMessageResponse:
+    return ChatMessageResponse(
+        id=message.id,
+        location_id=message.location_id,
+        user_id=message.user_id,
+        message=message.message,
+        created_at=message.created_at,
+        username=username,
+    )
+
+
+def serialize_room_message(message: ChatRoomMessage, username: str | None = None) -> ChatRoomMessageResponse:
+    return ChatRoomMessageResponse(
+        id=message.id,
+        room_id=message.room_id,
+        user_id=message.user_id,
+        text=message.text,
+        created_at=message.created_at,
+        username=username,
+    )
 
 
 # ============================================================
@@ -64,7 +86,7 @@ def send_message(
     # Enforce message limit (keep only last MAX_MESSAGES)
     prune_old_messages(location_id, db)
 
-    return new_msg
+    return serialize_chat_message(new_msg, user.username)
 
 
 @router.get("/{location_id}", response_model=List[ChatMessageResponse])
@@ -78,14 +100,15 @@ def get_messages(
     Ordered from oldest → newest
     """
     msgs = (
-        db.query(ChatMessage)
+        db.query(ChatMessage, User.username)
+        .join(User, ChatMessage.user_id == User.id, isouter=True)
         .filter(ChatMessage.location_id == location_id)
         .order_by(ChatMessage.created_at.asc())
         .limit(MAX_MESSAGES)
         .all()
     )
 
-    return msgs
+    return [serialize_chat_message(msg, username) for msg, username in msgs]
 
 
 def prune_old_messages(location_id: uuid.UUID, db: Session):
@@ -118,6 +141,70 @@ def prune_old_messages(location_id: uuid.UUID, db: Session):
     ).delete()
 
     db.commit()
+
+
+@router.websocket("/{location_id}/ws")
+async def location_websocket_endpoint(websocket: WebSocket, location_id: str):
+    """
+    Real-time chat tied to a specific location.
+
+    Expects JSON payloads:
+      {"text": "hello", "user_id": "<uuid>"}
+    """
+    try:
+        loc_uuid = uuid.UUID(location_id)
+    except ValueError:
+        await websocket.close(code=1008)
+        return
+
+    db = SessionLocal()
+    try:
+        loc_exists = db.query(Location.id).filter(Location.id == loc_uuid).first()
+        if not loc_exists:
+            await websocket.close(code=1008)
+            return
+    finally:
+        db.close()
+
+    await location_manager.connect(loc_uuid, websocket)
+
+    try:
+        while True:
+            data = await websocket.receive_json()
+            text = data.get("text")
+            user_id_str = data.get("user_id") or websocket.headers.get("x-user-id")
+
+            if not text:
+                continue
+
+            db = SessionLocal()
+            try:
+                user_uuid = None
+                user_obj: User | None = None
+                if user_id_str:
+                    try:
+                        user_uuid = uuid.UUID(str(user_id_str))
+                        user_obj = db.query(User).filter(User.id == user_uuid).first()
+                    except ValueError:
+                        user_uuid = None
+
+                msg = ChatMessage(
+                    location_id=loc_uuid,
+                    user_id=user_uuid,
+                    message=text,
+                )
+                db.add(msg)
+                db.commit()
+                db.refresh(msg)
+
+                payload = serialize_chat_message(msg, user_obj.username if user_obj else None).model_dump()
+                prune_old_messages(loc_uuid, db)
+            finally:
+                db.close()
+
+            await location_manager.broadcast(loc_uuid, payload)
+    except WebSocketDisconnect:
+        location_manager.disconnect(loc_uuid, websocket)
 
 
 # ============================================================
@@ -207,7 +294,11 @@ def get_room_messages(
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
 
-    query = db.query(ChatRoomMessage).filter(ChatRoomMessage.room_id == room_id)
+    query = (
+        db.query(ChatRoomMessage, User.username)
+        .join(User, ChatRoomMessage.user_id == User.id, isouter=True)
+        .filter(ChatRoomMessage.room_id == room_id)
+    )
 
     if before is not None:
         query = query.filter(ChatRoomMessage.created_at < before)
@@ -221,7 +312,7 @@ def get_room_messages(
     )
 
     msgs.reverse()
-    return msgs
+    return [serialize_room_message(msg, username) for msg, username in msgs]
 
 
 @router.post("/rooms/{room_id}/messages", response_model=ChatRoomMessageResponse)
@@ -250,7 +341,7 @@ def send_room_message(
     db.commit()
     db.refresh(msg)
 
-    return msg
+    return serialize_room_message(msg, user.username)
 
 
 # ------------------------------------------------------------
@@ -281,7 +372,8 @@ class ConnectionManager:
             await connection.send_json(message)
 
 
-manager = ConnectionManager()
+room_manager = ConnectionManager()
+location_manager = ConnectionManager()
 
 
 @router.websocket("/rooms/{room_id}/ws")
@@ -301,11 +393,10 @@ async def room_websocket_endpoint(
     try:
         room_uuid = uuid.UUID(room_id)
     except ValueError:
-        # Cannot raise HTTPException in WS; just close connection.
         await websocket.close(code=1008)
         return
 
-    await manager.connect(room_uuid, websocket)
+    await room_manager.connect(room_uuid, websocket)
 
     try:
         while True:
@@ -314,16 +405,16 @@ async def room_websocket_endpoint(
             user_id_str = data.get("user_id")
 
             if not text:
-                # ignore empty payloads
                 continue
 
-            # Persist to DB
             db = SessionLocal()
             try:
                 user_uuid = None
+                user_obj: User | None = None
                 if user_id_str:
                     try:
                         user_uuid = uuid.UUID(user_id_str)
+                        user_obj = db.query(User).filter(User.id == user_uuid).first()
                     except ValueError:
                         user_uuid = None
 
@@ -336,12 +427,11 @@ async def room_websocket_endpoint(
                 db.commit()
                 db.refresh(msg)
 
-                payload = ChatRoomMessageResponse.model_validate(msg).model_dump()
+                payload = serialize_room_message(msg, user_obj.username if user_obj else None).model_dump()
             finally:
                 db.close()
 
-            # Broadcast to all clients in this room
-            await manager.broadcast(room_uuid, payload)
+            await room_manager.broadcast(room_uuid, payload)
 
     except WebSocketDisconnect:
-        manager.disconnect(room_uuid, websocket)
+        room_manager.disconnect(room_uuid, websocket)
