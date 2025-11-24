@@ -114,7 +114,7 @@ private struct SavedLocationCard: View {
                         }
                     }
                 )
-                .aspectRatio(contentMode: .fill)
+                .aspectRatio(16/9, contentMode: .fill)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 LinearGradient(
