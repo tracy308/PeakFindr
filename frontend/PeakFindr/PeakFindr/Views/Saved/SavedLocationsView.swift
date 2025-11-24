@@ -124,6 +124,8 @@ private struct SavedLocationCard: View {
                 )
 
                 VStack(alignment: .leading, spacing: 4) {
+                    Spacer()
+                    Spacer()
                     Text(loc.name)
                         .font(.headline)
                         .foregroundColor(.white)
@@ -133,6 +135,7 @@ private struct SavedLocationCard: View {
                             .font(.subheadline)
                             .foregroundColor(.white.opacity(0.9))
                     }
+                    Spacer()
                 }
                 .padding()
             }
