@@ -26,18 +26,22 @@ struct ProfileView: View {
         let p = profileVM.profile
         let progress = min(Double(p.points % 100) / 100.0, 1.0)
         let nextLevel = p.level + 1
-        return ZStack(alignment: .bottom) {
+        return ZStack(alignment: .top) {
             LinearGradient(
                 colors: [Color(red: 193/255, green: 66/255, blue: 54/255),
                          Color(red: 212/255, green: 93/255, blue: 58/255)],
                 startPoint: .topLeading, endPoint: .bottomTrailing
             )
-            .frame(height: 320)
+            .frame(height: 340)
+            .frame(maxWidth: .infinity)
+            .ignoresSafeArea(edges: .top)
 
             VStack(spacing: 12) {
                 Circle()
-                    .fill(Color.white).frame(width: 80, height: 80)
+                    .fill(Color.white)
+                    .frame(width: 86, height: 86)
                     .overlay(Text(String((p.name.isEmpty ? authVM.username : p.name).prefix(1))).font(.title))
+                    .padding(.top, 18)
 
                 Text(p.name.isEmpty ? authVM.username : p.name)
                     .font(.title2).bold().foregroundColor(.white)
@@ -86,7 +90,7 @@ struct ProfileView: View {
                 .padding(.top, 4)
                 .padding(.bottom, 12)
             }
-            .padding(.top, 40)
+            .padding(.top, 28)
         }
     }
 
