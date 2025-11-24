@@ -153,7 +153,7 @@ struct DetailView: View {
 
                     // Navigate button
                     Button {
-                        Navigator.openInMaps(urlString: loc.maps_url)
+                        Navigator.openInMaps(for: loc)
                     } label: {
                         Label("Navigate", systemImage: "location.fill")
                             .frame(maxWidth: .infinity)
