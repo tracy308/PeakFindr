@@ -5,7 +5,7 @@ import uuid
 import os
 from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
-
+from fastapi.responses import FileResponse
 from app.database import get_db
 from app.models import (
     Location, LocationImage, Tag, LocationTag, UserVisit
@@ -28,6 +28,55 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "..", "media", "location_images")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+def normalize_name(name: str) -> str:
+    """
+    Convert location name into the filename format:
+    - lowercase
+    - no spaces
+    - no apostrophes
+    """
+    return (
+        name.lower()
+            .replace(" ", "")
+            .replace("'", "")
+    )
+
+@router.get("/{location_id}/image")
+def get_location_image(
+    location_id: uuid.UUID,
+    db: Session = Depends(get_db),
+):
+    """
+    Returns the main image for a location by deriving the
+    filename from the location name.
+    """
+    # 1. Fetch location
+    location = db.query(Location).filter(Location.id == location_id).first()
+    if not location:
+        raise HTTPException(status_code=404, detail="Location not found")
+
+    # 2. Convert name -> filename pattern
+    normalized = normalize_name(location.name)
+    filename = f"{normalized}.jpg"  # adjust if png or jpeg exists
+
+    # 3. Build full disk path
+    file_path = os.path.join(
+        BASE_DIR,
+        "..",
+        "media",
+        "location_images",
+        filename
+    )
+
+    # 4. Check existence
+    if not os.path.exists(file_path):
+        raise HTTPException(
+            status_code=404,
+            detail=f"Image '{filename}' not found"
+        )
+
+    # 5. Serve the file
+    return FileResponse(file_path, media_type="image/jpeg")
 
 def _commit(db: Session):
     """Commit helper with rollback on failure."""
