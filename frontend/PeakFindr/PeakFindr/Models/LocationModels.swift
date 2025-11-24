@@ -9,6 +9,10 @@ struct LocationResponse: Codable, Identifiable, Equatable {
     let price_level: Int?
     let area: String?
     let created_at: String
+
+    var mainImageURL: URL? {
+        URL(string: "\(APIClient.shared.baseURL)/locations/\(id)/image")
+    }
 }
 
 struct LocationDetailResponse: Codable {
