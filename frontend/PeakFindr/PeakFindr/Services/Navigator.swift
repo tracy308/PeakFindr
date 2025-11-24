@@ -4,11 +4,6 @@ import UIKit
 
 struct Navigator {
     static func openInMaps(for location: LocationResponse) {
-        if let mapsURLString = location.maps_url, let url = URL(string: mapsURLString) {
-            UIApplication.shared.open(url)
-            return
-        }
-
         var queryParts: [String] = [location.name]
         let region = location.area?.isEmpty == false ? location.area! : "Hong Kong"
         queryParts.append(region)
