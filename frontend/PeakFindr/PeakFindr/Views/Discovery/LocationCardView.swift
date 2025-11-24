@@ -19,6 +19,7 @@ struct LocationCardView: View {
                     }
                 )
                 .aspectRatio(contentMode: .fill)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 LinearGradient(
                     colors: [.clear, .black.opacity(0.55)],
                     startPoint: .top,
