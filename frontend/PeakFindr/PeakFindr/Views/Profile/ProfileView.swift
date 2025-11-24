@@ -32,7 +32,7 @@ struct ProfileView: View {
                          Color(red: 212/255, green: 93/255, blue: 58/255)],
                 startPoint: .topLeading, endPoint: .bottomTrailing
             )
-            .frame(height: 340)
+            .frame(height: 400)
             .frame(maxWidth: .infinity)
             .ignoresSafeArea(edges: .top)
 

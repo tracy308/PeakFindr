@@ -102,7 +102,7 @@ struct DetailView: View {
                         Button {
                             Task { await checkIn(loc) }
                         } label: {
-                            Label("Check In (+points)", systemImage: "checkmark.seal.fill")
+                            Label("Check In (+ 10 points)", systemImage: "checkmark.seal.fill")
                                 .frame(maxWidth: .infinity)
                                 .padding()
                                 .background(isSaved ? Color(red: 170/255, green: 64/255, blue: 57/255) : Color.gray.opacity(0.4))

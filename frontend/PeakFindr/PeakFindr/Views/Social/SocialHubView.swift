@@ -51,15 +51,29 @@ struct SocialHubView: View {
                     Color(red: 182/255, green: 74/255, blue: 174/255)
                 ],
                 startPoint: .topLeading, endPoint: .bottomTrailing
-            ).frame(height: 170)
+            )
+            .frame(height: 170)
+            .mask(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+            )
+
             VStack(spacing: 8) {
-                Image(systemName: "person.2.fill").font(.largeTitle).foregroundColor(.white)
-                Text("Social Hub").font(.title2).bold().foregroundColor(.white)
+                Image(systemName: "person.2.fill")
+                    .font(.largeTitle)
+                    .foregroundColor(.white)
+
+                Text("Social Hub")
+                    .font(.title2).bold()
+                    .foregroundColor(.white)
+
                 Text("Connect with explorers and plan adventures together")
-                    .font(.subheadline).foregroundColor(.white.opacity(0.9))
-                    .multilineTextAlignment(.center).padding(.horizontal, 24)
+                    .font(.subheadline)
+                    .foregroundColor(.white.opacity(0.9))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
             }
         }
+        .padding(.horizontal)
     }
 
     private func loadRooms() async {

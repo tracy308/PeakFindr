@@ -42,7 +42,7 @@ struct SavedLocationsView: View {
 
     private var header: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: 14)
                 .fill(
                     LinearGradient(
                         colors: [

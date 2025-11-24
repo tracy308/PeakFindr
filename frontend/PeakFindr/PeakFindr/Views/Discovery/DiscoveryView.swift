@@ -62,6 +62,7 @@ struct DiscoveryView: View {
                 )
                 .padding(.horizontal)
                 .padding(.top, 8)
+                Spacer()
             }
 
             NavigationLink(
@@ -88,7 +89,7 @@ struct DiscoveryView: View {
                         endPoint: .bottomTrailing
                     )
                 )
-                .frame(height: 160)
+                .frame(height: 200)
                 .padding(.horizontal)
 
             VStack(spacing: 8) {
