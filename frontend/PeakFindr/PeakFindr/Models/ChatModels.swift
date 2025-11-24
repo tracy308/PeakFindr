@@ -1,17 +1,14 @@
 
 import Foundation
 
-struct ChatRoom: Identifiable, Equatable {
-    let id: UUID
-    let name: String
-    let category: LocationCategory
-
-    static let general = ChatRoom(id: UUID(), name: "General Chat", category: .all)
+struct ChatMessageRequest: Codable {
+    let message: String
 }
 
-struct ChatMessage: Identifiable, Equatable {
-    let id: UUID
-    let text: String
-    let isUser: Bool
-    let timestamp: Date
+struct ChatMessageResponse: Codable, Identifiable, Equatable {
+    let id: Int
+    let location_id: String
+    let user_id: String
+    let message: String
+    let created_at: String
 }

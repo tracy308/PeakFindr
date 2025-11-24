@@ -1,20 +1,20 @@
-
 import Foundation
-import Combine
+internal import Combine
 
 @MainActor
 final class AuthViewModel: ObservableObject {
-    @Published var isAuthenticated: Bool = false
-    @Published var token: String? = nil
-    @Published var userID: String? = nil
+    @Published var isAuthenticated = false
+    @Published var userId: String? = nil
+    @Published var username: String = ""
+    @Published var email: String = ""
 
-    @Published var isLoading: Bool = false
+    @Published var isLoading = false
     @Published var errorMessage: String? = nil
 
-    func restoreSessionIfPossible() async {
-        if let saved = TokenStore.shared.loadToken() {
-            token = saved
-            isAuthenticated = true
+    func restoreSession() {
+        if let id = UserIdStore.shared.load() {
+            self.userId = id
+            self.isAuthenticated = true
         }
     }
 
@@ -23,9 +23,13 @@ final class AuthViewModel: ObservableObject {
         errorMessage = nil
         do {
             let res = try await AuthService.shared.login(email: email, password: password)
-            token = res.token
-            userID = res.user_id
-            TokenStore.shared.save(token: res.token)
+            self.userId = res.user_id
+            self.username = res.username
+            self.email = res.email
+
+            // save user ID in Keychain
+            UserIdStore.shared.save(userId: res.user_id)
+
             isAuthenticated = true
         } catch {
             errorMessage = error.localizedDescription
@@ -39,9 +43,12 @@ final class AuthViewModel: ObservableObject {
         errorMessage = nil
         do {
             let res = try await AuthService.shared.register(email: email, username: username, password: password)
-            token = res.token
-            userID = res.user_id
-            TokenStore.shared.save(token: res.token)
+            self.userId = res.user_id
+            self.username = res.username
+            self.email = res.email
+
+            UserIdStore.shared.save(userId: res.user_id)
+
             isAuthenticated = true
         } catch {
             errorMessage = error.localizedDescription
@@ -51,9 +58,10 @@ final class AuthViewModel: ObservableObject {
     }
 
     func logout() {
+        UserIdStore.shared.clear()
+        userId = nil
+        username = ""
+        email = ""
         isAuthenticated = false
-        token = nil
-        userID = nil
-        TokenStore.shared.clear()
     }
 }

@@ -1,30 +1,29 @@
-
 import Foundation
-import Combine
+internal import Combine
 
 @MainActor
-class ProfileViewModel: ObservableObject {
-    @Published var profile: UserProfile
+final class ProfileViewModel: ObservableObject {
+    @Published var profile: UserProfile = .empty()
+    @Published var error: String? = nil
+    @Published var isLoading = false
 
-    init(profile: UserProfile = .sample()) {
-        self.profile = profile
-        NotificationCenter.default.addObserver(forName: .reviewSubmitted, object: nil, queue: .main) { [weak self] note in
-            guard let self, let location = note.object as? Location else { return }
-            self.handleVisit(location: location)
+    func refreshAll(userId: String? = nil, username: String? = nil, email: String? = nil) {
+        guard let userId else { return }
+        Task { await loadStats(userId: userId, username: username, email: email) }
+    }
+
+    private func loadStats(userId: String, username: String?, email: String?) async {
+        isLoading = true
+        error = nil
+        do {
+            let visits = try await InteractionService.shared.getVisits(userId: userId)
+            profile.visitsCount = visits.count
+            profile.recentVisits = Array(visits.prefix(5))
+        } catch let err {
+            error = err.localizedDescription
         }
-    }
-
-    private func handleVisit(location: Location) {
-        let visit = VisitRecord(id: UUID(), locationName: location.name, date: Date(), pointsEarned: 10)
-        profile.visits.insert(visit, at: 0)
-        profile.points += visit.pointsEarned
-        profile.reviewsCount += 1
-        profile.level = max(1, profile.points / 100 + 1)
-    }
-
-    var progressToNextLevel: Double {
-        let base = max(0, (profile.level - 1) * 100)
-        let into = max(0, profile.points - base)
-        return min(1.0, Double(into) / 100.0)
+        profile.name = username ?? profile.name
+        profile.email = email ?? profile.email
+        isLoading = false
     }
 }

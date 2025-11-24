@@ -1,78 +1,61 @@
-
 import SwiftUI
 
 struct DetailView: View {
-    @EnvironmentObject var discoveryVM: DiscoveryViewModel
-    @EnvironmentObject var profileVM: ProfileViewModel
-    var location: Location?
+    @EnvironmentObject var authVM: AuthViewModel
+    var location: LocationResponse?
+    var showCheckIn: Bool = false
 
-    @State private var isSaved: Bool = false
+    @State private var detail: LocationDetailResponse?
+    @State private var reviews: [ReviewWithPhotos] = []
+    @State private var isSaved = false
     @State private var showingReviewSheet = false
+    @State private var checkInMessage: String? = nil
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                if let loc = location {
-                    if let uiImage = UIImage(named: loc.imageName) {
-                        Image(uiImage: uiImage)
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(height: 260)
-                            .clipped()
-                    }
+            if let loc = location {
+                VStack(alignment: .leading, spacing: 12) {
 
+                    // Top image placeholder
+                    Rectangle()
+                        .fill(Color.gray.opacity(0.2))
+                        .frame(height: 260)
+                        .overlay(
+                            Text(loc.name)
+                                .font(.title2)
+                                .bold()
+                        )
+
+                    // Basic info
                     VStack(alignment: .leading, spacing: 8) {
                         Text(loc.name)
                             .font(.title2)
                             .bold()
 
-                        HStack {
-                            Image(systemName: "mappin.and.ellipse")
-                            Text(loc.region)
-                                .foregroundColor(.secondary)
-                            Spacer()
-                        }
-
-                        HStack(spacing: 6) {
-                            Image(systemName: "star.fill").foregroundColor(.yellow)
-                            Text(String(format: "%.1f", loc.rating)).bold()
-                            Text("· \(loc.reviews.count) review\(loc.reviews.count == 1 ? "" : "s")")
-                                .foregroundColor(.secondary)
-                        }
-
-                        Text(loc.summary)
+                        Text(loc.area ?? "Hong Kong")
                             .foregroundColor(.secondary)
-                            .padding(.top, 4)
-                    }
-                    .padding(.horizontal)
 
-                    VStack(spacing: 10) {
-                        infoRow(icon: "clock", title: "Duration", value: loc.duration ?? "—")
-                        infoRow(icon: "calendar", title: "Opening hour", value: loc.openingHours ?? "—")
-
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Local Tips")
-                                .font(.headline)
-                            Text("Visit early morning to see locals performing traditional rituals. Donations are welcomed.")
+                        if let desc = loc.description {
+                            Text(desc)
                                 .foregroundColor(.secondary)
                         }
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(10)
                     }
                     .padding(.horizontal)
 
+                    // Save & Write Review buttons
                     HStack(spacing: 12) {
                         Button {
-                            if let loc = location {
-                                discoveryVM.save(location: loc)
-                                isSaved = true
-                            }
+                            Task { await toggleSave(loc) }
                         } label: {
-                            Label(isSaved ? "Saved" : "Save", systemImage: isSaved ? "heart.fill" : "heart")
+                            Label(isSaved ? "Saved" : "Save",
+                                  systemImage: isSaved ? "heart.fill" : "heart")
                                 .frame(maxWidth: .infinity)
                                 .padding()
-                                .background(isSaved ? Color.green.opacity(0.9) : Color(red: 170/255, green: 64/255, blue: 57/255))
+                                .background(
+                                    isSaved
+                                    ? Color.green
+                                    : Color(red: 170/255, green: 64/255, blue: 57/255)
+                                )
                                 .foregroundColor(.white)
                                 .cornerRadius(10)
                         }
@@ -85,17 +68,37 @@ struct DetailView: View {
                                 .padding()
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 10)
-                                        .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                                        .stroke(Color.gray.opacity(0.3))
                                 )
                         }
                     }
                     .padding(.horizontal)
-                    .padding(.top, 8)
 
-                    Button {
-                        if let loc = location {
-                            Navigator.openInMaps(query: loc.name)
+                    // Optional Check-in section
+                    if showCheckIn {
+                        Button {
+                            Task { await checkIn(loc) }
+                        } label: {
+                            Label("Check In (+points)", systemImage: "checkmark.seal.fill")
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color(red: 170/255, green: 64/255, blue: 57/255))
+                                .foregroundColor(.white)
+                                .cornerRadius(10)
                         }
+                        .padding(.horizontal)
+
+                        if let msg = checkInMessage {
+                            Text(msg)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .padding(.horizontal)
+                        }
+                    }
+
+                    // Navigate button
+                    Button {
+                        Navigator.openInMaps(urlString: loc.maps_url)
                     } label: {
                         Label("Navigate", systemImage: "location.fill")
                             .frame(maxWidth: .infinity)
@@ -105,79 +108,138 @@ struct DetailView: View {
                             .cornerRadius(10)
                     }
                     .padding(.horizontal)
-                    .padding(.top, 4)
 
-                    if !loc.reviews.isEmpty {
+                    // Reviews section
+                    if !reviews.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Reviews")
                                 .font(.headline)
-                                .padding(.top, 12)
-                            ForEach(loc.reviews) { r in
-                                HStack(alignment: .top, spacing: 12) {
-                                    Circle()
-                                        .fill(Color(red: 170/255, green: 64/255, blue: 57/255))
-                                        .frame(width: 40, height: 40)
-                                        .overlay(Text(String(r.author.prefix(1))).foregroundColor(.white))
+                                .padding(.top, 8)
 
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(r.author).bold()
-                                        Text(r.text).foregroundColor(.secondary)
-                                        Text(r.date, style: .date)
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
+                            ForEach(reviews) { item in
+                                let r = item.review
+
+                                VStack(alignment: .leading, spacing: 6) {
+                                    // Stars for rating
+                                    starRow(for: r.rating)
+
+                                    if !r.comment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                        Text(r.comment)
                                     }
 
-                                    Spacer()
-                                    Text(String(format: "%.1f", r.rating))
-                                        .bold()
+                                    Text(r.created_at)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
                                 }
-                                .padding(10)
+                                .padding()
                                 .background(Color(.systemBackground))
                                 .cornerRadius(10)
                                 .shadow(radius: 0.5)
                             }
                         }
                         .padding(.horizontal)
-                        .padding(.bottom)
+                    } else {
+                        // Optional empty state when there are no reviews
+                        Text("No reviews yet. Be the first to write one!")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal)
+                            .padding(.top, 8)
                     }
-                } else {
-                    Text("No location selected")
-                        .padding()
                 }
+            } else {
+                Text("No location selected")
+                    .padding()
             }
         }
         .navigationTitle(location?.name ?? "Details")
         .navigationBarTitleDisplayMode(.inline)
+        .task { await loadDetailAndReviews() }
         .sheet(isPresented: $showingReviewSheet) {
             if let loc = location {
-                WriteReviewView(location: loc) { review in
-                    discoveryVM.addReview(review, to: loc)
-                    showingReviewSheet = false
+                WriteReviewView(locationId: loc.id) { rating, comment in
+                    Task {
+                        await submitReview(locationId: loc.id,
+                                           rating: rating,
+                                           comment: comment)
+                    }
                 }
-            }
-        }
-        .onAppear {
-            if let loc = location {
-                isSaved = discoveryVM.saved.contains(where: { $0.id == loc.id })
             }
         }
     }
 
-    @ViewBuilder
-    private func infoRow(icon: String, title: String, value: String) -> some View {
-        HStack {
-            Image(systemName: icon)
-            VStack(alignment: .leading) {
-                Text(title)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                Text(value)
-                    .bold()
-            }
-            Spacer()
+    // MARK: - Data loading
+
+    private func loadDetailAndReviews() async {
+        guard let loc = location, let uid = authVM.userId else { return }
+
+        detail = try? await LocationService.shared.getLocationDetail(locationId: loc.id)
+
+        do {
+            reviews = try await ReviewService.shared.reviewsForLocation(userId: uid, locationId: loc.id)
+        } catch {
+            print("Failed to load reviews: \(error)")
+            reviews = []
         }
-        .padding()
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(10)
+
+        let savedRows = (try? await InteractionService.shared
+            .getSaved(userId: uid)) ?? []
+
+        isSaved = savedRows.contains(where: { $0.location_id == loc.id })
+    }
+
+    // MARK: - Actions
+
+    private func toggleSave(_ loc: LocationResponse) async {
+        guard let uid = authVM.userId else { return }
+
+        if isSaved {
+            _ = try? await InteractionService.shared
+                .unsave(locationId: loc.id, userId: uid)
+            isSaved = false
+        } else {
+            _ = try? await InteractionService.shared
+                .save(locationId: loc.id, userId: uid)
+            isSaved = true
+        }
+    }
+
+    private func submitReview(locationId: String, rating: Int, comment: String) async {
+        guard let uid = authVM.userId else { return }
+
+        _ = try? await ReviewService.shared
+            .createReview(userId: uid,
+                          locationId: locationId,
+                          rating: rating,
+                          comment: comment)
+
+        _ = try? await InteractionService.shared
+            .recordVisit(locationId: locationId, userId: uid)
+
+        await loadDetailAndReviews()
+    }
+
+    private func checkIn(_ loc: LocationResponse) async {
+        guard let uid = authVM.userId else { return }
+
+        let res = try? await InteractionService.shared
+            .recordVisit(locationId: loc.id, userId: uid)
+
+        checkInMessage = res?.message ?? "Checked in!"
+    }
+
+    // MARK: - Helpers
+
+    @ViewBuilder
+    private func starRow(for rating: Int) -> some View {
+        let maroon = Color(red: 176/255, green: 62/255, blue: 55/255)
+
+        HStack(spacing: 2) {
+            ForEach(1...5, id: \.self) { idx in
+                Image(systemName: idx <= rating ? "star.fill" : "star")
+                    .font(.caption)
+                    .foregroundColor(maroon)
+            }
+        }
     }
 }

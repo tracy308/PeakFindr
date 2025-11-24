@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import uuid
 import os
 from sqlalchemy import func
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.database import get_db
 from app.models import (
@@ -17,6 +18,7 @@ from app.schemas.location import (
     LocationTagsRequest,
     LocationDetailResponse,
     LocationTagsResponse,
+    TagResponse,
 )
 from app.utils.security import get_current_user
 
@@ -25,6 +27,18 @@ router = APIRouter()
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "..", "media", "location_images")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+
+def _commit(db: Session):
+    """Commit helper with rollback on failure."""
+    try:
+        db.commit()
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Database error: {str(e)}"
+        )
 
 
 # ---------------------------------------------------------------------
@@ -41,7 +55,6 @@ def get_recommended_locations(
     - Excludes locations the user has visited.
     - Random ordering (future: category-based).
     """
-    # limit sanity check
     limit = max(1, min(limit, 50))
 
     visited_subq = (
@@ -63,25 +76,20 @@ def get_recommended_locations(
 
     location_ids = [loc.id for loc in locations]
 
-    # Prefetch images
     images = (
         db.query(LocationImage)
         .filter(LocationImage.location_id.in_(location_ids))
         .all()
     )
 
-    # Prefetch tag links
     tag_links = (
         db.query(LocationTag)
         .filter(LocationTag.location_id.in_(location_ids))
         .all()
     )
     tag_ids = [link.tag_id for link in tag_links]
-
-    # Prefetch tags
     tags = db.query(Tag).filter(Tag.id.in_(tag_ids)).all() if tag_ids else []
 
-    # Build maps
     images_by_loc = {}
     for img in images:
         images_by_loc.setdefault(img.location_id, []).append(img)
@@ -92,17 +100,19 @@ def get_recommended_locations(
     for link in tag_links:
         tag_ids_by_loc.setdefault(link.location_id, []).append(link.tag_id)
 
-    results = []
+    results: List[LocationDetailResponse] = []
     for loc in locations:
         loc_images = images_by_loc.get(loc.id, [])
         loc_tag_ids = tag_ids_by_loc.get(loc.id, [])
         loc_tags = [tags_by_id[tid] for tid in loc_tag_ids if tid in tags_by_id]
 
-        results.append({
-            "location": loc,
-            "images": loc_images,
-            "tags": loc_tags,
-        })
+        results.append(
+            LocationDetailResponse.model_validate({
+                "location": loc,
+                "images": loc_images,
+                "tags": loc_tags
+            })
+        )
 
     return results
 
@@ -115,14 +125,20 @@ def create_location(
     payload: LocationCreate,
     db: Session = Depends(get_db),
 ):
-    new_location = Location(
-        id=uuid.uuid4(),
-        **payload.model_dump()
-    )
-    db.add(new_location)
-    db.commit()
-    db.refresh(new_location)
-    return new_location
+    try:
+        new_location = Location(
+            id=uuid.uuid4(),
+            **payload.model_dump()
+        )
+        db.add(new_location)
+        _commit(db)
+        db.refresh(new_location)
+        return LocationResponse.model_validate(new_location)
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ---------------------------------------------------------------------
@@ -138,10 +154,11 @@ def list_locations(
 
     if area:
         query = query.filter(Location.area == area)
-    if price_level:
+    if price_level is not None:
         query = query.filter(Location.price_level == price_level)
 
-    return query.all()
+    locations = query.all()
+    return [LocationResponse.model_validate(loc) for loc in locations]
 
 
 # ---------------------------------------------------------------------
@@ -162,11 +179,11 @@ def get_location(
     tag_ids = [t.tag_id for t in tag_links]
     tags = db.query(Tag).filter(Tag.id.in_(tag_ids)).all() if tag_ids else []
 
-    return {
+    return LocationDetailResponse.model_validate({
         "location": location,
         "images": images,
         "tags": tags,
-    }
+    })
 
 
 # ---------------------------------------------------------------------
@@ -185,9 +202,9 @@ def update_location(
     for key, value in payload.model_dump(exclude_unset=True).items():
         setattr(location, key, value)
 
-    db.commit()
+    _commit(db)
     db.refresh(location)
-    return location
+    return LocationResponse.model_validate(location)
 
 
 # ---------------------------------------------------------------------
@@ -203,7 +220,7 @@ def delete_location(
         raise HTTPException(status_code=404, detail="Location not found")
 
     db.delete(location)
-    db.commit()
+    _commit(db)
     return {"message": "Location deleted"}
 
 
@@ -221,22 +238,25 @@ async def upload_location_image(
         raise HTTPException(status_code=404, detail="Location not found")
 
     filename = f"{location_id}_{uuid.uuid4()}.jpg"
-    file_path = os.path.join(UPLOAD_FOLDER, filename)
+    disk_path = os.path.join(UPLOAD_FOLDER, filename)
 
     content = await file.read()
-    with open(file_path, "wb") as f:
+    with open(disk_path, "wb") as f:
         f.write(content)
+
+    # Store relative path in DB (usually better than absolute)
+    rel_path = os.path.join("media", "location_images", filename)
 
     new_image = LocationImage(
         location_id=location_id,
-        file_path=file_path
+        file_path=rel_path
     )
 
     db.add(new_image)
-    db.commit()
+    _commit(db)
     db.refresh(new_image)
 
-    return new_image
+    return LocationImageResponse.model_validate(new_image)
 
 
 # ---------------------------------------------------------------------
@@ -252,28 +272,42 @@ def add_tags_to_location(
     if not location:
         raise HTTPException(status_code=404, detail="Location not found")
 
-    added_tags = []
+    added_tags: List[Tag] = []
 
-    for tag_name in payload.tags:
-        tag = db.query(Tag).filter(Tag.name == tag_name).first()
-        if not tag:
-            tag = Tag(name=tag_name)
-            db.add(tag)
-            db.commit()
-            db.refresh(tag)
+    try:
+        for tag_name in payload.tags:
+            tag_name = tag_name.strip()
+            if not tag_name:
+                continue
 
-        exists = db.query(LocationTag).filter(
-            LocationTag.location_id == location_id,
-            LocationTag.tag_id == tag.id
-        ).first()
+            tag = db.query(Tag).filter(Tag.name == tag_name).first()
+            if not tag:
+                tag = Tag(name=tag_name)
+                db.add(tag)
+                _commit(db)
+                db.refresh(tag)
 
-        if not exists:
-            db.add(LocationTag(location_id=location_id, tag_id=tag.id))
-            added_tags.append(tag)
+            exists = db.query(LocationTag).filter(
+                LocationTag.location_id == location_id,
+                LocationTag.tag_id == tag.id
+            ).first()
 
-    db.commit()
+            if not exists:
+                db.add(LocationTag(location_id=location_id, tag_id=tag.id))
+                added_tags.append(tag)
 
-    return {"added_tags": added_tags}
+        _commit(db)
+
+        # Return only Tag objects per schema
+        return LocationTagsResponse.model_validate({
+            "added_tags": added_tags
+        })
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ---------------------------------------------------------------------
@@ -294,6 +328,6 @@ def remove_tag_from_location(
         raise HTTPException(status_code=404, detail="Tag not attached to location")
 
     db.delete(link)
-    db.commit()
+    _commit(db)
 
     return {"message": "Tag removed"}

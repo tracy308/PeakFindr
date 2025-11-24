@@ -2,110 +2,76 @@
 import SwiftUI
 
 struct SocialHubView: View {
-    @State private var selectedCategory: LocationCategory = .all
+    @EnvironmentObject var authVM: AuthViewModel
+    @EnvironmentObject var discoveryVM: DiscoveryViewModel
 
-    private let rooms: [ChatRoom] = [.general]
-
-    var filteredRooms: [ChatRoom] {
-        switch selectedCategory {
-        case .all:
-            return rooms
-        default:
-            return rooms.filter { $0.category == selectedCategory || $0.category == .all }
-        }
-    }
+    @State private var savedLocations: [LocationResponse] = []
+    @State private var loading = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            socialHeader
+            header
+            Text("Chat rooms").font(.headline)
+                .padding(.horizontal).padding(.top, 16)
 
-            Text("Chat rooms")
-                .font(.headline)
-                .padding(.horizontal)
-                .padding(.top, 16)
-
-            categoryFilterBar
-
-            List {
-                ForEach(filteredRooms) { room in
-                    NavigationLink {
-                        ChatRoomView(room: room)
-                    } label: {
-                        HStack {
-                            Image(systemName: "bubble.left")
-                                .foregroundColor(.primary)
-                            Text(room.name)
-                                .font(.body)
-                            Spacer()
+            if loading {
+                ProgressView().padding()
+            } else if savedLocations.isEmpty {
+                Text("Save a location to unlock its chat.")
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal).padding(.top, 8)
+            } else {
+                List {
+                    ForEach(savedLocations) { loc in
+                        NavigationLink {
+                            ChatRoomView(location: loc)
+                        } label: {
+                            HStack {
+                                Image(systemName: "bubble.left")
+                                Text(loc.name)
+                                Spacer()
+                            }.padding(.vertical, 8)
                         }
-                        .padding(.vertical, 8)
                     }
                 }
+                .listStyle(.plain)
             }
-            .listStyle(.plain)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .navigationTitle("Social Hub")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                Text("Social Hub")
-                    .font(.headline)
-            }
-        }
+        .task { await loadRooms() }
     }
 
-    private var socialHeader: some View {
+    private var header: some View {
         ZStack {
             LinearGradient(
                 colors: [
                     Color(red: 217/255, green: 85/255, blue: 122/255),
                     Color(red: 182/255, green: 74/255, blue: 174/255)
                 ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .frame(height: 170)
-
+                startPoint: .topLeading, endPoint: .bottomTrailing
+            ).frame(height: 170)
             VStack(spacing: 8) {
-                Image(systemName: "person.2.fill")
-                    .font(.largeTitle)
-                    .foregroundColor(.white)
-                Text("Social Hub")
-                    .font(.title2)
-                    .bold()
-                    .foregroundColor(.white)
+                Image(systemName: "person.2.fill").font(.largeTitle).foregroundColor(.white)
+                Text("Social Hub").font(.title2).bold().foregroundColor(.white)
                 Text("Connect with explorers and plan adventures together")
-                    .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.9))
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
+                    .font(.subheadline).foregroundColor(.white.opacity(0.9))
+                    .multilineTextAlignment(.center).padding(.horizontal, 24)
             }
         }
     }
 
-    private var categoryFilterBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                ForEach(LocationCategory.allCases, id: \.self) { category in
-                    let isSelected = selectedCategory == category
-                    Button {
-                        selectedCategory = category
-                    } label: {
-                        Text(category.title)
-                            .font(.subheadline)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(isSelected ? Color(red: 170/255, green: 64/255, blue: 57/255) : Color.white)
-                            .foregroundColor(isSelected ? .white : .primary)
-                            .cornerRadius(999)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 999)
-                                    .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-                            )
-                    }
-                }
-            }
-            .padding(.horizontal)
-            .padding(.vertical, 8)
+    private func loadRooms() async {
+        guard let uid = authVM.userId else { return }
+        loading = true
+        let savedRows = (try? await InteractionService.shared.getSaved(userId: uid)) ?? []
+        var map = Dictionary(uniqueKeysWithValues: discoveryVM.locations.map { ($0.id, $0) })
+        if map.isEmpty {
+            let all = (try? await LocationService.shared.listLocations()) ?? []
+            map = Dictionary(uniqueKeysWithValues: all.map { ($0.id, $0) })
         }
+        savedLocations = savedRows.compactMap { map[$0.location_id] }
+        loading = false
     }
 }

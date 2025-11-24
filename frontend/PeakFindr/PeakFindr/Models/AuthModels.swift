@@ -13,11 +13,13 @@ struct LoginRequest: Codable {
 }
 
 struct AuthResponse: Codable {
+    let message: String
     let user_id: String
-    let token: String
+    let email: String
+    let username: String
 }
 
-/// Your backend /auth/me currently only echoes a user id, so keep this minimal.
 struct MeResponse: Codable {
+    let message: String
     let user_id: String
 }

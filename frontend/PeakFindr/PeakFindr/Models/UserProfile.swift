@@ -1,34 +1,24 @@
 
 import Foundation
 
-struct VisitRecord: Identifiable, Equatable, Codable {
-    let id: UUID
-    let locationName: String
-    let date: Date
-    let pointsEarned: Int
-}
-
-struct UserProfile: Identifiable, Codable {
-    var id: UUID = UUID()
+struct UserProfile {
     var name: String
     var email: String
     var level: Int
     var points: Int
-    var visits: [VisitRecord]
+    var visitsCount: Int
     var reviewsCount: Int
-    var streakDays: Int
+    var recentVisits: [VisitRecord]
 
-    static func sample() -> UserProfile {
+    static func empty() -> UserProfile {
         UserProfile(
-            name: "Alex Wong",
-            email: "alexwong@gmail.com",
+            name: "",
+            email: "",
             level: 1,
-            points: 10,
-            visits: [
-                VisitRecord(id: UUID(), locationName: "The Peak", date: Date(timeIntervalSinceNow: -60 * 60 * 24 * 5), pointsEarned: 10)
-            ],
-            reviewsCount: 1,
-            streakDays: 1
+            points: 0,
+            visitsCount: 0,
+            reviewsCount: 0,
+            recentVisits: []
         )
     }
 }
