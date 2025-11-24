@@ -257,6 +257,8 @@ struct DetailView: View {
                 .save(locationId: loc.id, userId: uid)
             isSaved = true
         }
+
+        NotificationCenter.default.post(name: .savedLocationsUpdated, object: nil)
     }
 
     private func submitReview(locationId: String, rating: Int, comment: String) async {
@@ -283,13 +285,14 @@ struct DetailView: View {
 
         do {
             let res = try await InteractionService.shared
-                .recordVisit(locationId: loc.id, userId: uid)
+                .recordVisit(locationId: loc.id, userId: uid, removeSaved: true)
             if let points = res.points_awarded, let level = res.level {
                 checkInMessage = "Checked in! +\(points) points (Level \(level))"
             } else {
                 checkInMessage = res.message
             }
             isSaved = false
+            NotificationCenter.default.post(name: .savedLocationsUpdated, object: nil)
         } catch {
             checkInMessage = "Check-in failed. Please try again."
         }

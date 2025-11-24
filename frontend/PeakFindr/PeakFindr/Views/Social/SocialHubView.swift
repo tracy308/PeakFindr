@@ -1,6 +1,10 @@
 
 import SwiftUI
 
+extension Notification.Name {
+    static let savedLocationsUpdated = Notification.Name("savedLocationsUpdated")
+}
+
 struct SocialHubView: View {
     @EnvironmentObject var authVM: AuthViewModel
     @EnvironmentObject var discoveryVM: DiscoveryViewModel
@@ -41,6 +45,10 @@ struct SocialHubView: View {
         .navigationTitle("Social Hub")
         .navigationBarTitleDisplayMode(.inline)
         .task { await loadRooms() }
+        .onAppear { Task { await loadRooms() } }
+        .onReceive(NotificationCenter.default.publisher(for: .savedLocationsUpdated)) { _ in
+            Task { await loadRooms() }
+        }
     }
 
     private var header: some View {
