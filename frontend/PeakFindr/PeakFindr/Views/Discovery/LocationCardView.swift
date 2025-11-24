@@ -32,10 +32,11 @@ struct LocationCardView: View {
                     Text(location.name)
                         .font(.headline)
                         .foregroundColor(.white)
-
+                        .padding(.leading, 4)
                     Text(location.area ?? "Hong Kong")
                         .font(.subheadline)
                         .foregroundColor(.white.opacity(0.85))
+                        .padding(.leading, 4)
                     Spacer()
                 }
             }

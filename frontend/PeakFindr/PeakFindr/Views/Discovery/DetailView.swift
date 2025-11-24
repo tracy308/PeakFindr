@@ -36,13 +36,18 @@ struct DetailView: View {
                         )
 
                         VStack(alignment: .leading, spacing: 6) {
+                            Spacer()
+                            Spacer()
                             Text(loc.name)
                                 .font(.title2)
                                 .bold()
                                 .foregroundColor(.white)
+                                .padding(.leading, 4)
 
                             Text(loc.area ?? "Hong Kong")
                                 .foregroundColor(.white.opacity(0.85))
+                                .padding(.leading, 4)
+                            Spacer()
                         }
                         .padding()
                     }
