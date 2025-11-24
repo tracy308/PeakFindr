@@ -181,6 +181,7 @@ Only endpoints that need user context require the `X-User-ID` header. In the tab
 | Method | Endpoint | Description | Headers | Request Body | Response |
 |--------|----------|-------------|---------|--------------|----------|
 | **GET** | `/locations/recommended?limit=10` | Random recommended locations the user has not visited yet | `X-User-ID` | Query: optional `limit` (max 50) | `[{ "location": {...}, "images": [...], "tags": [...] }, ...]` |
+| **GET** | `/locations/by-tags?tags=hiking,scenic&match_all=false` | Filter locations by tags (comma-separated) | — | Query: `tags` (required), `match_all` (optional, default false) | `[{ "location": {...}, "images": [...], "tags": [...] }, ...]` |
 | **GET** | `/locations/` | List all locations | — | Query: `?area=<str>&price_level=<int>` | `[{ "id": "uuid", "name": "...", "description": "...", "maps_url": "...", "price_level": 1-4, "area": "...", "created_at": "..." }, ...]` |
 | **POST** | `/locations/` | Create location | — | `{ "name": "Peak Tower", "description": "...", "maps_url": "...", "price_level": 2, "area": "Central" }` | `LocationResponse` |
 | **GET** | `/locations/{location_id}` | Get location + images + tags | — | — | `{ "location": {...}, "images": [...], "tags": [...] }` |

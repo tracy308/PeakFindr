@@ -118,6 +118,115 @@ def get_recommended_locations(
 
 
 # ---------------------------------------------------------------------
+# 0.5. FILTER LOCATIONS BY TAGS (Public)
+# ---------------------------------------------------------------------
+@router.get("/by-tags", response_model=List[LocationDetailResponse])
+def filter_locations_by_tags(
+    tags: str,  # comma-separated tag names, e.g., "hiking,scenic"
+    match_all: bool = False,  # if True, location must have ALL tags; if False, ANY tag
+    db: Session = Depends(get_db),
+):
+    """
+    Filter locations by tags.
+    - tags: comma-separated tag names (e.g., "hiking,scenic,sunset")
+    - match_all: if True, returns locations with ALL specified tags; if False, returns locations with ANY tag
+    
+    Returns location details including images and tags.
+    """
+    if not tags or not tags.strip():
+        raise HTTPException(status_code=400, detail="Tags parameter is required")
+    
+    # Parse tag names
+    tag_names = [name.strip().lower() for name in tags.split(",") if name.strip()]
+    
+    if not tag_names:
+        raise HTTPException(status_code=400, detail="No valid tags provided")
+    
+    # Find tag IDs
+    tag_objects = db.query(Tag).filter(Tag.name.in_(tag_names)).all()
+    
+    if not tag_objects:
+        # No matching tags found - return empty list
+        return []
+    
+    found_tag_ids = [tag.id for tag in tag_objects]
+    
+    if match_all:
+        # Location must have ALL specified tags
+        # Count how many of the specified tags each location has
+        location_tag_counts = (
+            db.query(LocationTag.location_id, func.count(LocationTag.tag_id).label('tag_count'))
+            .filter(LocationTag.tag_id.in_(found_tag_ids))
+            .group_by(LocationTag.location_id)
+            .having(func.count(LocationTag.tag_id) == len(found_tag_ids))
+            .all()
+        )
+        matching_location_ids = [loc_id for loc_id, _ in location_tag_counts]
+    else:
+        # Location must have ANY of the specified tags
+        matching_location_ids = (
+            db.query(LocationTag.location_id)
+            .filter(LocationTag.tag_id.in_(found_tag_ids))
+            .distinct()
+            .all()
+        )
+        matching_location_ids = [loc_id for (loc_id,) in matching_location_ids]
+    
+    if not matching_location_ids:
+        return []
+    
+    # Fetch matching locations
+    locations = (
+        db.query(Location)
+        .filter(Location.id.in_(matching_location_ids))
+        .all()
+    )
+    
+    # Prefetch images and tags for these locations
+    images = (
+        db.query(LocationImage)
+        .filter(LocationImage.location_id.in_(matching_location_ids))
+        .all()
+    )
+    
+    tag_links = (
+        db.query(LocationTag)
+        .filter(LocationTag.location_id.in_(matching_location_ids))
+        .all()
+    )
+    all_tag_ids = [link.tag_id for link in tag_links]
+    
+    all_tags = db.query(Tag).filter(Tag.id.in_(all_tag_ids)).all() if all_tag_ids else []
+    
+    # Build lookup maps
+    images_by_loc = {}
+    for img in images:
+        images_by_loc.setdefault(img.location_id, []).append(img)
+    
+    tags_by_id = {t.id: t for t in all_tags}
+    
+    tag_ids_by_loc = {}
+    for link in tag_links:
+        tag_ids_by_loc.setdefault(link.location_id, []).append(link.tag_id)
+    
+    results = []
+    for loc in locations:
+        loc_images = images_by_loc.get(loc.id, [])
+        loc_tag_ids = tag_ids_by_loc.get(loc.id, [])
+        loc_tags = [tags_by_id[tid] for tid in loc_tag_ids if tid in tags_by_id]
+        
+        results.append(
+            LocationDetailResponse.model_validate({
+                "location": loc,
+                "images": loc_images,
+                "tags": loc_tags
+            })
+        )
+    
+    return results
+
+
+# ---------------------------------------------------------------------
 # 1. CREATE LOCATION (Public — no authentication required)
 # ---------------------------------------------------------------------
 @router.post("/", response_model=LocationResponse)
