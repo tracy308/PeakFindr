@@ -97,15 +97,47 @@ private struct SavedLocationCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Rectangle()
-                .fill(Color.gray.opacity(0.2))
-                .frame(height: 160)
-                .cornerRadius(12)
-                .overlay(
+            ZStack(alignment: .bottomLeading) {
+                RemoteImageView(
+                    url: loc.mainImageURL,
+                    placeholder: {
+                        ZStack {
+                            Color.gray.opacity(0.12)
+                            ProgressView()
+                        }
+                    },
+                    failure: {
+                        ZStack {
+                            Color.gray.opacity(0.15)
+                            Image(systemName: "photo")
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                )
+                .aspectRatio(contentMode: .fill)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                LinearGradient(
+                    colors: [.clear, .black.opacity(0.5)],
+                    startPoint: .center,
+                    endPoint: .bottom
+                )
+
+                VStack(alignment: .leading, spacing: 4) {
                     Text(loc.name)
                         .font(.headline)
-                        .foregroundColor(.primary)
-                )
+                        .foregroundColor(.white)
+
+                    if let area = loc.area {
+                        Text(area)
+                            .font(.subheadline)
+                            .foregroundColor(.white.opacity(0.9))
+                    }
+                }
+                .padding()
+            }
+            .frame(height: 160)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 4) {
