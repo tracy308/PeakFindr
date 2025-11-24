@@ -1,15 +1,21 @@
 import Foundation
-
+internal import Combine
 final class LocationChatWebSocket: ObservableObject {
+    @Published var messages: [ChatMessageResponse] = []   // ← required
+
     private var task: URLSessionWebSocketTask?
     private let decoder = JSONDecoder()
 
     var onMessage: ((ChatMessageResponse) -> Void)?
 
-    func connect(locationId: String) {
+    func connect(locationId: String, userId: String) {
         disconnect()
         guard let url = APIClient.shared.webSocketURL(path: "/chat/\(locationId)/ws") else { return }
-        task = URLSession.shared.webSocketTask(with: url)
+
+        var request = URLRequest(url: url)
+        request.setValue(userId, forHTTPHeaderField: "X-User-ID")
+
+        task = URLSession.shared.webSocketTask(with: request)
         task?.resume()
         listen()
     }
@@ -33,12 +39,18 @@ final class LocationChatWebSocket: ObservableObject {
                 switch message {
                 case .data(let data):
                     if let decoded = try? decoder.decode(ChatMessageResponse.self, from: data) {
-                        DispatchQueue.main.async { self.onMessage?(decoded) }
+                        DispatchQueue.main.async {
+                            self.messages.append(decoded)   // UI updates
+                            self.onMessage?(decoded)
+                        }
                     }
                 case .string(let text):
                     if let data = text.data(using: .utf8),
                        let decoded = try? decoder.decode(ChatMessageResponse.self, from: data) {
-                        DispatchQueue.main.async { self.onMessage?(decoded) }
+                        DispatchQueue.main.async {
+                            self.messages.append(decoded)
+                            self.onMessage?(decoded)
+                        }
                     }
                 @unknown default:
                     break

@@ -82,13 +82,22 @@ struct ChatRoomView: View {
                 messages.append(incoming)
             }
         }
-        socket.connect(locationId: location.id)
+        socket.connect(locationId: location.id, userId: uid)
     }
 
     private func send() async {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, let uid = authVM.userId else { return }
-        socket.send(text: trimmed, userId: uid)
-        text = ""
+        do {
+            // Persist first so we always render the sent message even if the socket misses it
+            let created = try await ChatService.shared.sendMessage(userId: uid, locationId: location.id, message: trimmed)
+            if !messages.contains(where: { $0.id == created.id }) {
+                messages.append(created)
+            }
+            socket.send(text: trimmed, userId: uid)
+            text = ""
+        } catch {
+            print("Chat send error: \(error)")
+        }
     }
 }

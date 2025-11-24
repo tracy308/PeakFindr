@@ -3,7 +3,7 @@ import Foundation
 
 struct InteractionMessage: Codable {
     let message: String
-    let visit_id: String?
+    let visit_id: Int?
     let points_awarded: Int?
     let total_points: Int?
     let level: Int?
