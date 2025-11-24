@@ -1,7 +1,7 @@
 # app/models/user_interactions.py
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, UniqueConstraint, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -55,6 +55,8 @@ class UserVisit(Base):
         default=datetime.utcnow,
         nullable=False,
     )
+
+    points_earned: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     user: Mapped["User"] = relationship("User", back_populates="visits")
     location: Mapped["Location"] = relationship("Location", back_populates="visits")

@@ -3,7 +3,7 @@ import SwiftUI
 struct DetailView: View {
     @EnvironmentObject var authVM: AuthViewModel
     var location: LocationResponse?
-    var showCheckIn: Bool = false
+    var showCheckIn: Bool = true
 
     @State private var detail: LocationDetailResponse?
     @State private var reviews: [ReviewWithPhotos] = []
@@ -74,6 +74,29 @@ struct DetailView: View {
                     }
                     .padding(.horizontal)
 
+                    HStack(spacing: 12) {
+                        NavigationLink {
+                            ChatRoomView(location: loc)
+                        } label: {
+                            Label("Chat", systemImage: "bubble.left.and.bubble.right.fill")
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color(.systemGray6))
+                                .cornerRadius(10)
+                        }
+
+                        NavigationLink {
+                            ChatBotView(location: loc)
+                        } label: {
+                            Label("AI Guide", systemImage: "sparkles")
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color(.systemGray6))
+                                .cornerRadius(10)
+                        }
+                    }
+                    .padding(.horizontal)
+
                     // Optional Check-in section
                     if showCheckIn {
                         Button {
@@ -82,10 +105,11 @@ struct DetailView: View {
                             Label("Check In (+points)", systemImage: "checkmark.seal.fill")
                                 .frame(maxWidth: .infinity)
                                 .padding()
-                                .background(Color(red: 170/255, green: 64/255, blue: 57/255))
+                                .background(isSaved ? Color(red: 170/255, green: 64/255, blue: 57/255) : Color.gray.opacity(0.4))
                                 .foregroundColor(.white)
                                 .cornerRadius(10)
                         }
+                        .disabled(!isSaved)
                         .padding(.horizontal)
 
                         if let msg = checkInMessage {
@@ -221,11 +245,23 @@ struct DetailView: View {
 
     private func checkIn(_ loc: LocationResponse) async {
         guard let uid = authVM.userId else { return }
+        guard isSaved else {
+            checkInMessage = "Save this location before checking in."
+            return
+        }
 
-        let res = try? await InteractionService.shared
-            .recordVisit(locationId: loc.id, userId: uid)
-
-        checkInMessage = res?.message ?? "Checked in!"
+        do {
+            let res = try await InteractionService.shared
+                .recordVisit(locationId: loc.id, userId: uid)
+            if let points = res.points_awarded, let level = res.level {
+                checkInMessage = "Checked in! +\(points) points (Level \(level))"
+            } else {
+                checkInMessage = res.message
+            }
+            isSaved = false
+        } catch {
+            checkInMessage = "Check-in failed. Please try again."
+        }
     }
 
     // MARK: - Helpers

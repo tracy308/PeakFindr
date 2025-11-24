@@ -1,4 +1,3 @@
-
 import SwiftUI
 
 struct ProfileView: View {
@@ -8,11 +7,12 @@ struct ProfileView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 0) {
+            VStack(spacing: 20) {
                 headerSection
                 statsSection
                 recentVisitsSection
             }
+            .padding(.bottom, 20)
         }
         .background(Color(.systemGray6))
         .navigationTitle("Profile")
@@ -24,13 +24,15 @@ struct ProfileView: View {
 
     private var headerSection: some View {
         let p = profileVM.profile
+        let progress = min(Double(p.points % 100) / 100.0, 1.0)
+        let nextLevel = p.level + 1
         return ZStack(alignment: .bottom) {
             LinearGradient(
                 colors: [Color(red: 193/255, green: 66/255, blue: 54/255),
                          Color(red: 212/255, green: 93/255, blue: 58/255)],
                 startPoint: .topLeading, endPoint: .bottomTrailing
             )
-            .frame(height: 260)
+            .frame(height: 320)
 
             VStack(spacing: 12) {
                 Circle()
@@ -41,6 +43,33 @@ struct ProfileView: View {
                     .font(.title2).bold().foregroundColor(.white)
                 Text(p.email.isEmpty ? authVM.email : p.email)
                     .foregroundColor(.white.opacity(0.9))
+
+                HStack(spacing: 12) {
+                    badgeView(title: "Level", value: "\(p.level)", systemImage: "arrow.up.circle.fill")
+                    badgeView(title: "Points", value: "\(p.points)", systemImage: "star.fill")
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("Progress to level \(nextLevel)")
+                            .foregroundColor(.white.opacity(0.8))
+                            .font(.footnote)
+                        Spacer()
+                        Text("\(p.points % 100)/100")
+                            .foregroundColor(.white)
+                            .font(.footnote).bold()
+                    }
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Color.white.opacity(0.2))
+                            Capsule()
+                                .fill(Color.yellow)
+                                .frame(width: CGFloat(progress) * geo.size.width)
+                        }
+                    }
+                    .frame(height: 10)
+                }
+                .padding(.horizontal)
 
                 Button { onLogout() } label: {
                     Text("Log out")
@@ -54,11 +83,25 @@ struct ProfileView: View {
                         )
                         .cornerRadius(999)
                 }
-                .padding(.top, 8)
-                .padding(.bottom, 16)
+                .padding(.top, 4)
+                .padding(.bottom, 12)
             }
             .padding(.top, 40)
         }
+    }
+
+    private func badgeView(title: String, value: String, systemImage: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: systemImage).foregroundColor(.white)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.caption).foregroundColor(.white.opacity(0.8))
+                Text(value).font(.headline).foregroundColor(.white)
+            }
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 10)
+        .background(Color.white.opacity(0.12))
+        .cornerRadius(12)
     }
 
     private var statsSection: some View {
@@ -66,13 +109,15 @@ struct ProfileView: View {
         return HStack(spacing: 12) {
             StatCardView(iconName: "mappin.and.ellipse", title: "Visited", value: p.visitsCount)
             StatCardView(iconName: "star.fill", title: "Reviews", value: p.reviewsCount)
+            StatCardView(iconName: "flame.fill", title: "Streak", value: p.streakDays)
         }
-        .padding(.horizontal).padding(.top, 16)
+        .padding(.horizontal)
+        .padding(.top, 8)
     }
 
     private var recentVisitsSection: some View {
         let visits = profileVM.profile.recentVisits
-        return VStack(alignment: .leading, spacing: 8) {
+        return VStack(alignment: .leading, spacing: 12) {
             Text("Recent Visits").font(.headline)
 
             if visits.isEmpty {
@@ -81,14 +126,24 @@ struct ProfileView: View {
             } else {
                 VStack(spacing: 12) {
                     ForEach(visits) { visit in
-                        HStack {
-                            Text(visit.location_id).bold()
+                        HStack(alignment: .center) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(visit.location_name ?? "Unknown location")
+                                    .bold()
+                                Text(visit.created_at)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
                             Spacer()
-                            Text(visit.created_at).font(.caption).foregroundColor(.secondary)
+                            if let pts = visit.points_earned {
+                                Text("+\(pts) points")
+                                    .font(.subheadline).foregroundColor(.green)
+                            }
                         }
                         .padding()
                         .background(Color(.systemBackground))
                         .cornerRadius(14)
+                        .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
                     }
                 }
             }

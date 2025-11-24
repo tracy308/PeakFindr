@@ -8,6 +8,7 @@ struct UserProfile {
     var points: Int
     var visitsCount: Int
     var reviewsCount: Int
+    var streakDays: Int
     var recentVisits: [VisitRecord]
 
     static func empty() -> UserProfile {
@@ -18,6 +19,7 @@ struct UserProfile {
             points: 0,
             visitsCount: 0,
             reviewsCount: 0,
+            streakDays: 0,
             recentVisits: []
         )
     }

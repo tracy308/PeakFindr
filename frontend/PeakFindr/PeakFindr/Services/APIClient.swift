@@ -35,6 +35,13 @@ final class APIClient {
         }
         return try JSONDecoder().decode(T.self, from: data)
     }
+
+    func webSocketURL(path: String) -> URL? {
+        guard var components = URLComponents(string: baseURL + path) else { return nil }
+        if components.scheme == "https" { components.scheme = "wss" }
+        if components.scheme == "http" { components.scheme = "ws" }
+        return components.url
+    }
 }
 
 struct AnyEncodable: Encodable {

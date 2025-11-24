@@ -66,6 +66,13 @@ def get_my_profile(
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    # Keep level in sync with points
+    computed_level = max(1, (db_user.points // 100) + 1)
+    if db_user.level != computed_level:
+        db_user.level = computed_level
+        db.commit()
+        db.refresh(db_user)
+
     # Fetch visits + location names
     visit_rows = (
         db.query(UserVisit, Location)
@@ -80,7 +87,7 @@ def get_my_profile(
             id=visit.id,
             location_name=loc.name,
             date=visit.created_at,
-            points_earned=0,
+            points_earned=visit.points_earned,
         )
         for visit, loc in visit_rows
     ]
@@ -89,8 +96,8 @@ def get_my_profile(
         id=db_user.id,
         name=db_user.username,
         email=db_user.email,
-        level=1,          # placeholder for future level system
-        points=0,         # placeholder for future points system
+        level=db_user.level,
+        points=db_user.points,
         visits=visits,
         reviews_count=len(db_user.reviews) if db_user.reviews else 0,
         streak_days=0,    # placeholder for future streak system
@@ -146,7 +153,7 @@ def update_my_profile(
             id=visit.id,
             location_name=loc.name,
             date=visit.created_at,
-            points_earned=0,
+            points_earned=visit.points_earned,
         )
         for visit, loc in visit_rows
     ]
@@ -155,8 +162,8 @@ def update_my_profile(
         id=db_user.id,
         name=db_user.username,
         email=db_user.email,
-        level=1,
-        points=0,
+        level=db_user.level,
+        points=db_user.points,
         visits=visits,
         reviews_count=len(db_user.reviews) if db_user.reviews else 0,
         streak_days=0,
