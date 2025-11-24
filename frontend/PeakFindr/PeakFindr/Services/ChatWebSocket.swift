@@ -6,10 +6,14 @@ final class LocationChatWebSocket: ObservableObject {
 
     var onMessage: ((ChatMessageResponse) -> Void)?
 
-    func connect(locationId: String) {
+    func connect(locationId: String, userId: String) {
         disconnect()
         guard let url = APIClient.shared.webSocketURL(path: "/chat/\(locationId)/ws") else { return }
-        task = URLSession.shared.webSocketTask(with: url)
+
+        var request = URLRequest(url: url)
+        request.setValue(userId, forHTTPHeaderField: "X-User-ID")
+
+        task = URLSession.shared.webSocketTask(with: request)
         task?.resume()
         listen()
     }
