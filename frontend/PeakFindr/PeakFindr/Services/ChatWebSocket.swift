@@ -1,6 +1,8 @@
 import Foundation
-
+internal import Combine
 final class LocationChatWebSocket: ObservableObject {
+    @Published var messages: [ChatMessageResponse] = []   // ← required
+
     private var task: URLSessionWebSocketTask?
     private let decoder = JSONDecoder()
 
@@ -37,12 +39,18 @@ final class LocationChatWebSocket: ObservableObject {
                 switch message {
                 case .data(let data):
                     if let decoded = try? decoder.decode(ChatMessageResponse.self, from: data) {
-                        DispatchQueue.main.async { self.onMessage?(decoded) }
+                        DispatchQueue.main.async {
+                            self.messages.append(decoded)   // UI updates
+                            self.onMessage?(decoded)
+                        }
                     }
                 case .string(let text):
                     if let data = text.data(using: .utf8),
                        let decoded = try? decoder.decode(ChatMessageResponse.self, from: data) {
-                        DispatchQueue.main.async { self.onMessage?(decoded) }
+                        DispatchQueue.main.async {
+                            self.messages.append(decoded)
+                            self.onMessage?(decoded)
+                        }
                     }
                 @unknown default:
                     break
