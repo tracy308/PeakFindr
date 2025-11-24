@@ -25,8 +25,9 @@ final class InteractionService {
         return try await APIClient.shared.request("/interactions/saved", userId: userId)
     }
 
-    func recordVisit(locationId: String, userId: String) async throws -> InteractionMessage {
-        return try await APIClient.shared.request("/interactions/visit/\(locationId)", method: "POST", userId: userId)
+    func recordVisit(locationId: String, userId: String, removeSaved: Bool = false) async throws -> InteractionMessage {
+        let suffix = removeSaved ? "?remove_saved=true" : ""
+        return try await APIClient.shared.request("/interactions/visit/\(locationId)\(suffix)", method: "POST", userId: userId)
     }
 
     func getVisits(userId: String) async throws -> [VisitRecord] {

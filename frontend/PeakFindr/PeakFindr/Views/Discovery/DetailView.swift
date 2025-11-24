@@ -283,7 +283,7 @@ struct DetailView: View {
 
         do {
             let res = try await InteractionService.shared
-                .recordVisit(locationId: loc.id, userId: uid)
+                .recordVisit(locationId: loc.id, userId: uid, removeSaved: true)
             if let points = res.points_awarded, let level = res.level {
                 checkInMessage = "Checked in! +\(points) points (Level \(level))"
             } else {
