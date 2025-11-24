@@ -98,6 +98,13 @@ psql -d peakfindr -f backend/migrations/20250209_add_points_and_chat_tables.sql
 psql -d peakfindr -f backend/migrations/20251123_add_location_optional_fields.sql
 ```
 
+OR 
+```bash
+sudo -u postgres psql -d peakfindr -f migrations/20250209_add_points_and_chat_tables.sql
+sudo -u postgres psql -d peakfindr -f migrations/20251123_add_location_optional_fields.sql
+```
+
+
 > Adjust the database name/connection flags if you use a different user or host.
 
 ---

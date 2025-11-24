@@ -369,6 +369,40 @@ async def upload_location_image(
 
 
 # ---------------------------------------------------------------------
+# 6.1. ADD IMAGE BY FILE PATH (Public)
+# ---------------------------------------------------------------------
+@router.post("/{location_id}/images/from-path", response_model=LocationImageResponse)
+def add_location_image_from_path(
+    location_id: uuid.UUID,
+    file_path: str,
+    db: Session = Depends(get_db),
+):
+    """
+    Directly attach an existing image file to a location.
+    This does NOT upload or write files — only adds DB entry.
+    """
+    location = db.query(Location).filter(Location.id == location_id).first()
+    if not location:
+        raise HTTPException(status_code=404, detail="Location not found")
+
+    # Ensure consistent relative path usage
+    if not file_path.startswith("media/location_images/"):
+        file_path = f"media/location_images/{file_path}"
+
+    # Create the DB row
+    img = LocationImage(
+        location_id=location_id,
+        file_path=file_path
+    )
+
+    db.add(img)
+    _commit(db)
+    db.refresh(img)
+
+    return LocationImageResponse.model_validate(img)
+
+
+# ---------------------------------------------------------------------
 # 7. ADD TAGS TO LOCATION (Public)
 # ---------------------------------------------------------------------
 @router.post("/{location_id}/tags", response_model=LocationTagsResponse)
