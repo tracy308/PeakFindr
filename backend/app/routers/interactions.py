@@ -168,6 +168,7 @@ def get_user_saved(
 @router.post("/visit/{location_id}")
 def add_visit(
     location_id: uuid.UUID,
+    remove_saved: bool = False,
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
@@ -193,11 +194,11 @@ def add_visit(
 
     db.add(visit)
 
-    # Remove from saved once checked in
-    db.query(UserSaved).filter(
-        UserSaved.user_id == user.id,
-        UserSaved.location_id == location_id,
-    ).delete()
+    if remove_saved:
+        db.query(UserSaved).filter(
+            UserSaved.user_id == user.id,
+            UserSaved.location_id == location_id,
+        ).delete()
 
     # Award points + level up
     db_user: User | None = db.query(User).filter(User.id == user.id).first()
