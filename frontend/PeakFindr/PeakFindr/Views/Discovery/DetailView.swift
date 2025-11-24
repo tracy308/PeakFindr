@@ -16,15 +16,39 @@ struct DetailView: View {
             if let loc = location {
                 VStack(alignment: .leading, spacing: 12) {
 
-                    // Top image placeholder
-                    Rectangle()
-                        .fill(Color.gray.opacity(0.2))
-                        .frame(height: 260)
-                        .overlay(
+                    ZStack(alignment: .bottomLeading) {
+                        RemoteImageView(
+                            url: loc.mainImageURL,
+                            placeholder: {
+                                ProgressView()
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                    .background(Color.gray.opacity(0.1))
+                            },
+                            failure: {
+                                Color.gray.opacity(0.2)
+                            }
+                        )
+
+                        LinearGradient(
+                            colors: [.clear, .black.opacity(0.6)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+
+                        VStack(alignment: .leading, spacing: 6) {
                             Text(loc.name)
                                 .font(.title2)
                                 .bold()
-                        )
+                                .foregroundColor(.white)
+
+                            Text(loc.area ?? "Hong Kong")
+                                .foregroundColor(.white.opacity(0.85))
+                        }
+                        .padding()
+                    }
+                    .frame(height: 260)
+                    .cornerRadius(16)
+                    .clipped()
 
                     // Basic info
                     VStack(alignment: .leading, spacing: 8) {

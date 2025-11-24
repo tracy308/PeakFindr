@@ -6,11 +6,39 @@ struct LocationCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Rectangle()
-                .fill(Color.gray.opacity(0.2))
-                .frame(height: 200)
-                .cornerRadius(12)
-                .overlay(Text(location.name).font(.headline))
+            ZStack(alignment: .bottomLeading) {
+                RemoteImageView(
+                    url: location.mainImageURL,
+                    placeholder: {
+                        ProgressView()
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .background(Color.gray.opacity(0.1))
+                    },
+                    failure: {
+                        Color.gray.opacity(0.2)
+                    }
+                )
+
+                LinearGradient(
+                    colors: [.clear, .black.opacity(0.55)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(location.name)
+                        .font(.headline)
+                        .foregroundColor(.white)
+
+                    Text(location.area ?? "Hong Kong")
+                        .font(.subheadline)
+                        .foregroundColor(.white.opacity(0.85))
+                }
+                .padding()
+            }
+            .frame(height: 200)
+            .cornerRadius(12)
+            .clipped()
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
