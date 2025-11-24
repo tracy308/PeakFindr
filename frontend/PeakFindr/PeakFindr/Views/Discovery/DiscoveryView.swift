@@ -105,7 +105,7 @@ struct DiscoveryView: View {
                     .foregroundColor(.white.opacity(0.95))
             }
         }
-        .padding(.top)
+        .padding(.top, 6)
     }
 
     private var filterBar: some View {

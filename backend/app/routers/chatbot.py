@@ -7,7 +7,7 @@ import uuid
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -24,7 +24,7 @@ class ChatTurn(BaseModel):
 
 class ChatBotRequest(BaseModel):
     message: str
-    history: List[ChatTurn] = []
+    history: List[ChatTurn] = Field(default_factory=list)
 
 
 class ChatBotResponse(BaseModel):
@@ -68,14 +68,28 @@ async def chat_with_bot(
         raise HTTPException(status_code=404, detail="Location not found")
 
     system_prompt = (
-        "You are a friendly tour guide for Hong Kong destinations. "
-        f"The user is asking about {location.name}."
+        "You are a friendly, knowledgeable tour guide for this destination. "
+        "Keep responses concise, helpful, and focused on the location."
+    )
+
+    location_context = " ".join(
+        part
+        for part in [
+            f"You are helping a visitor explore {location.name}.",
+            f"Area: {location.area}." if location.area else "",
+            f"Region: {location.region}." if getattr(location, "region", None) else "",
+            f"Overview: {location.description}." if location.description else "",
+            f"Summary: {location.summary}." if getattr(location, "summary", None) else "",
+        ]
+        if part
     )
 
     messages: list[dict[str, str]] = [
         {"role": "system", "content": system_prompt},
         {"role": "assistant", "content": f"Hi, I'm your tour guide for {location.name}."},
     ]
+    if location_context:
+        messages.append({"role": "system", "content": location_context})
     for turn in payload.history:
         messages.append({"role": turn.role, "content": turn.content})
     messages.append({"role": "user", "content": payload.message})
