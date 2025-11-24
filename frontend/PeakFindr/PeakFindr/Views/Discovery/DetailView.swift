@@ -55,6 +55,7 @@ struct DetailView: View {
                     .aspectRatio(16/9, contentMode: .fill)
                     .cornerRadius(16)
                     .clipped()
+                    .padding(.horizontal)
 
                     // Basic info
                     VStack(alignment: .leading, spacing: 8) {
