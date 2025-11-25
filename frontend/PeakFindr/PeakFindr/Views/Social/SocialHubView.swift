@@ -84,16 +84,31 @@ struct SocialHubView: View {
         .padding(.horizontal)
     }
 
+    @MainActor
     private func loadRooms() async {
         guard let uid = authVM.userId else { return }
         loading = true
         let savedRows = (try? await InteractionService.shared.getSaved(userId: uid)) ?? []
+
         var map = Dictionary(uniqueKeysWithValues: discoveryVM.locations.map { ($0.id, $0) })
         if map.isEmpty {
             let all = (try? await LocationService.shared.listLocations()) ?? []
             map = Dictionary(uniqueKeysWithValues: all.map { ($0.id, $0) })
         }
-        savedLocations = savedRows.compactMap { map[$0.location_id] }
+
+        var resolvedLocations: [LocationResponse] = []
+        for row in savedRows {
+            if let location = map[row.location_id] {
+                resolvedLocations.append(location)
+                continue
+            }
+
+            if let detail = try? await LocationService.shared.getLocationDetail(locationId: row.location_id) {
+                resolvedLocations.append(detail.location)
+            }
+        }
+
+        savedLocations = resolvedLocations
         loading = false
     }
 }
