@@ -15,7 +15,7 @@ final class LocationService {
     }
 
     /// Discovery endpoint - excludes saved locations (requires auth)
-    func discoverLocations(userId: String, limit: Int = 50) async throws -> [LocationResponse] {
+    func discoverLocations(userId: String, limit: Int = 50) async throws -> [LocationDetailResponse] {
         return try await APIClient.shared.request("/locations/discover?limit=\(limit)", userId: userId)
     }
 

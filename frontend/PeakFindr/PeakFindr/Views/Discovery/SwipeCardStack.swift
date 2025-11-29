@@ -1,10 +1,10 @@
 import SwiftUI
 
 struct SwipeCardStack: View {
-    let locations: [LocationResponse]
-    var onSkip: (LocationResponse) -> Void
-    var onSave: (LocationResponse) -> Void
-    var onTapTop: (LocationResponse) -> Void
+    let locations: [LocationDetailResponse]
+    var onSkip: (LocationDetailResponse) -> Void
+    var onSave: (LocationDetailResponse) -> Void
+    var onTapTop: (LocationDetailResponse) -> Void
 
     @State private var dragOffset: CGSize = .zero
 
@@ -64,7 +64,7 @@ struct SwipeCardStack: View {
         )
     }
 
-    private func handleEnd(value: DragGesture.Value, loc: LocationResponse) {
+    private func handleEnd(value: DragGesture.Value, loc: LocationDetailResponse) {
         let translation = value.translation.width
         let threshold: CGFloat = 120
 

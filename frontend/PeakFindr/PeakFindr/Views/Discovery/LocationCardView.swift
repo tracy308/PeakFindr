@@ -2,13 +2,13 @@
 import SwiftUI
 
 struct LocationCardView: View {
-    let location: LocationResponse
+    let location: LocationDetailResponse
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             ZStack(alignment: .bottomLeading) {
                 RemoteImageView(
-                    url: location.mainImageURL,
+                    url: location.location.mainImageURL,
                     placeholder: {
                         ProgressView()
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -29,11 +29,11 @@ struct LocationCardView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Spacer()
                     Spacer()
-                    Text(location.name)
+                    Text(location.location.name)
                         .font(.headline)
                         .foregroundColor(.white)
                         .padding(.leading, 4)
-                    Text(location.area ?? "Hong Kong")
+                    Text(location.location.area ?? "Hong Kong")
                         .font(.subheadline)
                         .foregroundColor(.white.opacity(0.85))
                         .padding(.leading, 4)
@@ -46,9 +46,9 @@ struct LocationCardView: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
-                    Text(location.name).font(.headline)
+                    Text(location.location.name).font(.headline)
                     Spacer()
-                    if let price = location.price_level {
+                    if let price = location.location.price_level {
                         Text(String(repeating: "$", count: price))
                             .font(.caption)
                             .foregroundColor(.secondary)
@@ -57,13 +57,13 @@ struct LocationCardView: View {
 
                 HStack(spacing: 4) {
                     Image(systemName: "mappin.and.ellipse")
-                    Text(location.area ?? "Hong Kong")
+                    Text(location.location.area ?? "Hong Kong")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                     Spacer()
                 }
 
-                Text(location.description ?? "")
+                Text(location.location.description ?? "")
                     .font(.footnote)
                     .foregroundColor(.secondary)
                     .lineLimit(3)
