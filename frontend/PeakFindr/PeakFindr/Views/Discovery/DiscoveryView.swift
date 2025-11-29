@@ -73,7 +73,7 @@ struct DiscoveryView: View {
         .navigationTitle("Today's Discovery")
         .navigationBarTitleDisplayMode(.inline)
         .task {
-            await discoveryVM.loadLocations()
+            await discoveryVM.loadLocations(userId: authVM.userId)
         }
         .navigationDestination(isPresented: $navigateToDetail) {
             DetailView(location: activeLocation)
