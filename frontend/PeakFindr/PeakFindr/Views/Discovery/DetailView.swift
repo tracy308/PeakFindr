@@ -16,15 +16,46 @@ struct DetailView: View {
             if let loc = location {
                 VStack(alignment: .leading, spacing: 12) {
 
-                    // Top image placeholder
-                    Rectangle()
-                        .fill(Color.gray.opacity(0.2))
-                        .frame(height: 260)
-                        .overlay(
+                    ZStack(alignment: .bottomLeading) {
+                        RemoteImageView(
+                            url: loc.mainImageURL,
+                            placeholder: {
+                                ProgressView()
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                    .background(Color.gray.opacity(0.1))
+                            },
+                            failure: {
+                                Color.gray.opacity(0.2)
+                            }
+                        )
+
+                        LinearGradient(
+                            colors: [.clear, .black.opacity(0.6)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            Spacer()
+                            Spacer()
                             Text(loc.name)
                                 .font(.title2)
                                 .bold()
-                        )
+                                .foregroundColor(.white)
+                                .padding(.leading, 4)
+
+                            Text(loc.area ?? "Hong Kong")
+                                .foregroundColor(.white.opacity(0.85))
+                                .padding(.leading, 4)
+                            Spacer()
+                        }
+                        .padding()
+                    }
+                    .frame(maxWidth: .infinity)
+                    .aspectRatio(16/9, contentMode: .fill)
+                    .cornerRadius(16)
+                    .clipped()
+                    .padding(.horizontal)
 
                     // Basic info
                     VStack(alignment: .leading, spacing: 8) {
@@ -102,7 +133,7 @@ struct DetailView: View {
                         Button {
                             Task { await checkIn(loc) }
                         } label: {
-                            Label("Check In (+points)", systemImage: "checkmark.seal.fill")
+                            Label("Check In (+ 10 points)", systemImage: "checkmark.seal.fill")
                                 .frame(maxWidth: .infinity)
                                 .padding()
                                 .background(isSaved ? Color(red: 170/255, green: 64/255, blue: 57/255) : Color.gray.opacity(0.4))
@@ -122,7 +153,7 @@ struct DetailView: View {
 
                     // Navigate button
                     Button {
-                        Navigator.openInMaps(urlString: loc.maps_url)
+                        Navigator.openInMaps(for: loc)
                     } label: {
                         Label("Navigate", systemImage: "location.fill")
                             .frame(maxWidth: .infinity)
@@ -226,6 +257,8 @@ struct DetailView: View {
                 .save(locationId: loc.id, userId: uid)
             isSaved = true
         }
+
+        NotificationCenter.default.post(name: .savedLocationsUpdated, object: nil)
     }
 
     private func submitReview(locationId: String, rating: Int, comment: String) async {
@@ -252,13 +285,14 @@ struct DetailView: View {
 
         do {
             let res = try await InteractionService.shared
-                .recordVisit(locationId: loc.id, userId: uid)
+                .recordVisit(locationId: loc.id, userId: uid, removeSaved: true)
             if let points = res.points_awarded, let level = res.level {
                 checkInMessage = "Checked in! +\(points) points (Level \(level))"
             } else {
                 checkInMessage = res.message
             }
             isSaved = false
+            NotificationCenter.default.post(name: .savedLocationsUpdated, object: nil)
         } catch {
             checkInMessage = "Check-in failed. Please try again."
         }

@@ -1,6 +1,10 @@
 
 import SwiftUI
 
+extension Notification.Name {
+    static let savedLocationsUpdated = Notification.Name("savedLocationsUpdated")
+}
+
 struct SocialHubView: View {
     @EnvironmentObject var authVM: AuthViewModel
     @EnvironmentObject var discoveryVM: DiscoveryViewModel
@@ -41,6 +45,10 @@ struct SocialHubView: View {
         .navigationTitle("Social Hub")
         .navigationBarTitleDisplayMode(.inline)
         .task { await loadRooms() }
+        .onAppear { Task { await loadRooms() } }
+        .onReceive(NotificationCenter.default.publisher(for: .savedLocationsUpdated)) { _ in
+            Task { await loadRooms() }
+        }
     }
 
     private var header: some View {
@@ -51,27 +59,56 @@ struct SocialHubView: View {
                     Color(red: 182/255, green: 74/255, blue: 174/255)
                 ],
                 startPoint: .topLeading, endPoint: .bottomTrailing
-            ).frame(height: 170)
+            )
+            .frame(height: 170)
+            .mask(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+            )
+
             VStack(spacing: 8) {
-                Image(systemName: "person.2.fill").font(.largeTitle).foregroundColor(.white)
-                Text("Social Hub").font(.title2).bold().foregroundColor(.white)
+                Image(systemName: "person.2.fill")
+                    .font(.largeTitle)
+                    .foregroundColor(.white)
+
+                Text("Social Hub")
+                    .font(.title2).bold()
+                    .foregroundColor(.white)
+
                 Text("Connect with explorers and plan adventures together")
-                    .font(.subheadline).foregroundColor(.white.opacity(0.9))
-                    .multilineTextAlignment(.center).padding(.horizontal, 24)
+                    .font(.subheadline)
+                    .foregroundColor(.white.opacity(0.9))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
             }
         }
+        .padding(.horizontal)
     }
 
+    @MainActor
     private func loadRooms() async {
         guard let uid = authVM.userId else { return }
         loading = true
         let savedRows = (try? await InteractionService.shared.getSaved(userId: uid)) ?? []
+
         var map = Dictionary(uniqueKeysWithValues: discoveryVM.locations.map { ($0.id, $0) })
         if map.isEmpty {
             let all = (try? await LocationService.shared.listLocations()) ?? []
             map = Dictionary(uniqueKeysWithValues: all.map { ($0.id, $0) })
         }
-        savedLocations = savedRows.compactMap { map[$0.location_id] }
+
+        var resolvedLocations: [LocationResponse] = []
+        for row in savedRows {
+            if let location = map[row.location_id] {
+                resolvedLocations.append(location)
+                continue
+            }
+
+            if let detail = try? await LocationService.shared.getLocationDetail(locationId: row.location_id) {
+                resolvedLocations.append(detail.location)
+            }
+        }
+
+        savedLocations = resolvedLocations
         loading = false
     }
 }
