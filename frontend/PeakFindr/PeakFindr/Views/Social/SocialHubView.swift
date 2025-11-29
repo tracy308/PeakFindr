@@ -90,7 +90,7 @@ struct SocialHubView: View {
         loading = true
         let savedRows = (try? await InteractionService.shared.getSaved(userId: uid)) ?? []
 
-        var map = Dictionary(uniqueKeysWithValues: discoveryVM.locations.map { ($0.id, $0) })
+        var map = Dictionary(uniqueKeysWithValues: discoveryVM.locations.map { ($0.id, $0.location) })
         if map.isEmpty {
             let all = (try? await LocationService.shared.listLocations()) ?? []
             map = Dictionary(uniqueKeysWithValues: all.map { ($0.id, $0) })
