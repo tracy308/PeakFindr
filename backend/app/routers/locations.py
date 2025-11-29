@@ -8,7 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from fastapi.responses import FileResponse
 from app.database import get_db
 from app.models import (
-    Location, LocationImage, Tag, LocationTag, UserVisit
+    Location, LocationImage, Tag, LocationTag, UserVisit, UserSaved
 )
 from app.schemas.location import (
     LocationCreate,
@@ -91,7 +91,84 @@ def _commit(db: Session):
 
 
 # ---------------------------------------------------------------------
-# 0. RECOMMENDED LOCATIONS (Personalized — requires authenticated user)
+# 0. DISCOVER LOCATIONS (Excludes saved — requires authenticated user)
+# ---------------------------------------------------------------------
+@router.get("/discover", response_model=List[LocationDetailResponse])
+def get_discover_locations(
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    """
+    Discovery feed for swipe interface:
+    - Excludes locations the user has saved.
+    - Random ordering for variety.
+    """
+    limit = max(1, min(limit, 100))
+
+    # Subquery: locations user has saved
+    saved_subq = (
+        db.query(UserSaved.location_id)
+        .filter(UserSaved.user_id == user.id)
+        .subquery()
+    )
+
+    locations = (
+        db.query(Location)
+        .filter(~Location.id.in_(saved_subq))
+        .order_by(func.random())
+        .limit(limit)
+        .all()
+    )
+
+    if not locations:
+        return []
+
+    location_ids = [loc.id for loc in locations]
+
+    images = (
+        db.query(LocationImage)
+        .filter(LocationImage.location_id.in_(location_ids))
+        .all()
+    )
+
+    tag_links = (
+        db.query(LocationTag)
+        .filter(LocationTag.location_id.in_(location_ids))
+        .all()
+    )
+    tag_ids = [link.tag_id for link in tag_links]
+    tags = db.query(Tag).filter(Tag.id.in_(tag_ids)).all() if tag_ids else []
+
+    images_by_loc = {}
+    for img in images:
+        images_by_loc.setdefault(img.location_id, []).append(img)
+
+    tags_by_id = {t.id: t for t in tags}
+
+    tag_ids_by_loc = {}
+    for link in tag_links:
+        tag_ids_by_loc.setdefault(link.location_id, []).append(link.tag_id)
+
+    results: List[LocationDetailResponse] = []
+    for loc in locations:
+        loc_images = images_by_loc.get(loc.id, [])
+        loc_tag_ids = tag_ids_by_loc.get(loc.id, [])
+        loc_tags = [tags_by_id[tid] for tid in loc_tag_ids if tid in tags_by_id]
+
+        results.append(
+            LocationDetailResponse.model_validate({
+                "location": loc,
+                "images": loc_images,
+                "tags": loc_tags
+            })
+        )
+
+    return results
+
+
+# ---------------------------------------------------------------------
+# 0.5. RECOMMENDED LOCATIONS (Personalized — requires authenticated user)
 # ---------------------------------------------------------------------
 @router.get("/recommended", response_model=List[LocationDetailResponse])
 def get_recommended_locations(
