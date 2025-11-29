@@ -3,7 +3,7 @@ internal import Combine
 
 @MainActor
 final class DiscoveryViewModel: ObservableObject {
-    @Published var locations: [LocationResponse] = []
+    @Published var locations: [LocationDetailResponse] = []
     @Published var isLoading = false
     @Published var error: String? = nil
 
@@ -17,7 +17,8 @@ final class DiscoveryViewModel: ObservableObject {
                 locations = try await LocationService.shared.discoverLocations(userId: userId)
             } else {
                 // Fallback: list all locations (public)
-                locations = try await LocationService.shared.listLocations()
+                let list = try await LocationService.shared.listLocations()
+                locations = list.map { LocationDetailResponse(location: $0, images: [], tags: []) }
             }
         } catch let err {
             error = err.localizedDescription
@@ -25,7 +26,7 @@ final class DiscoveryViewModel: ObservableObject {
         isLoading = false
     }
 
-    func removeTop(_ loc: LocationResponse) {
+    func removeTop(_ loc: LocationDetailResponse) {
         if let idx = locations.firstIndex(of: loc) { locations.remove(at: idx) }
     }
 }

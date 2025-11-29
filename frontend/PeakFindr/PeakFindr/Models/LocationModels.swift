@@ -15,7 +15,8 @@ struct LocationResponse: Codable, Identifiable, Equatable {
     }
 }
 
-struct LocationDetailResponse: Codable {
+struct LocationDetailResponse: Codable, Identifiable, Equatable {
+    var id: String { location.id }
     let location: LocationResponse
     let images: [LocationImage]
     let tags: [Tag]
