@@ -5,7 +5,7 @@ struct DiscoveryView: View {
     @EnvironmentObject var discoveryVM: DiscoveryViewModel
 
     @State private var navigateToDetail = false
-    @State private var activeLocation: LocationResponse?
+    @State private var activeLocation: LocationDetailResponse?
 
     enum Category: String, CaseIterable {
         case all = "All"
@@ -76,7 +76,7 @@ struct DiscoveryView: View {
             await discoveryVM.loadLocations(userId: authVM.userId)
         }
         .navigationDestination(isPresented: $navigateToDetail) {
-            DetailView(location: activeLocation)
+            DetailView(location: activeLocation?.location)
         }
     }
 
@@ -148,7 +148,7 @@ struct DiscoveryView: View {
 
     // MARK: - FILTERED RESULTS
 
-    private var filteredLocations: [LocationResponse] {
+    private var filteredLocations: [LocationDetailResponse] {
         let all = discoveryVM.locations
         guard selectedCategory != .all else { return all }
 
@@ -158,8 +158,8 @@ struct DiscoveryView: View {
         }
 
         return all.filter { loc in
-            let name = loc.name.lowercased()
-            let desc = loc.description?.lowercased()
+            let name = loc.location.name.lowercased()
+            let desc = loc.location.description?.lowercased()
 
             switch selectedCategory {
             case .food:
@@ -179,9 +179,9 @@ struct DiscoveryView: View {
 
     // MARK: - SAVE + LIKE
 
-    private func likeAndSave(_ loc: LocationResponse) async {
+    private func likeAndSave(_ loc: LocationDetailResponse) async {
         guard let uid = authVM.userId else { return }
-        _ = try? await InteractionService.shared.like(locationId: loc.id, userId: uid)
-        _ = try? await InteractionService.shared.save(locationId: loc.id, userId: uid)
+        _ = try? await InteractionService.shared.like(locationId: loc.location.id, userId: uid)
+        _ = try? await InteractionService.shared.save(locationId: loc.location.id, userId: uid)
     }
 }
